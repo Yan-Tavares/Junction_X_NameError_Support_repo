@@ -1,0 +1,11 @@
+# Core dependencies for AudioHateXplain pipeline
+torch>=2.0.0
+torchaudio>=2.0.0
+transformers>=4.30.0
+safetensors>=0.3.0
+
+# Audio backend for torchaudio (required on Windows)
+soundfile>=0.12.0
+
+# Additional utilities
+numpy>=1.24.0

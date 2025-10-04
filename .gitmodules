@@ -1,0 +1,3 @@
+[submodule "external/AudioHateXplain"]
+	path = external/AudioHateXplain
+	url = https://github.com/jinmyeongAN/AudioHateXplain.git

@@ -1,0 +1,98 @@
+{
+  "audio_file": "trump.wav",
+  "total_segments": 7,
+  "segments": [
+    {
+      "start_time": 0.0,
+      "end_time": 30.0,
+      "text": "YET AT LUSE ME VERY SHE I MOVED IN HER ECTION YOU KNOW SHE WAS DOWN UPON BEACH I MOVED ON HER AND I FAILED AO MINUTE  A LITTLE AND I DID TRY IT SHE WAS MARY SES NEPERS THERE EN OT DAN' SEN YO AN KNOW THIS WAS GERGES AND I MOVED ON HER VERY HEAVILY EFFECT I TOOK HER OUT FURNITURE SHOPPING SHE WANTED TO GET SOME FURNITURES  SAY YOU WOITD ET SOME NEX FOR AT TOOK ERFORGEN I WOUNEDED HER LIKE A I COULDN'T GET THERE AND SHE WAS MARRIED AAL ON A SUDDEN I SEE YOU SHE'S NOW GET THE BIG FONY TO NOW THAT SHES ONELY CHANGED HER WE",
+      "label": "uncertain",
+      "confidence": 0.3928,
+      "scores": {
+        "normal": 0.3928,
+        "offensive": 0.3383,
+        "hate": 0.2689
+      }
+    },
+    {
+      "start_time": 30.0,
+      "end_time": 60.0,
+      "text": "SHES YOU GIRLS HOTTISH IN THE CURPLE O YESO YES OL THIS JO  BUFFEMO MY MAN A WAWHER YOU GOT LOOKING O YOGAA ET AT YORSELF THAT IS A VERY FOMINIT TOIN YOU ARE MI O GIGER E THUS A AVE YOU TORE HAW YOUR SUFFERS JALOIS VERY FIGAGIN ABOUT  AT YOUAR I WOL CONOGODNAMAY MIT'S A DIFFER",
+      "label": "uncertain",
+      "confidence": 0.3878,
+      "scores": {
+        "normal": 0.3878,
+        "offensive": 0.2786,
+        "hate": 0.3336
+      }
+    },
+    {
+      "start_time": 60.0,
+      "end_time": 90.0,
+      "text": "OL THER O E NO NOIT STD SERVANTS YATIUR WITH A GOLD  YOU SOBE OR SECUR SISTE CUSINGER BONT WHATAMATICALLY ATJRACTED DEMULTO I JUST O ITING THEM SUC AMAGEYO  I KNOW YOU YOU IT AN WHEN YOU RE STARVE THEY LET YOU DO IT YOU MAN DO ANYTHING BUTH EVERY ONE GRAN BUTHER I COULD DO ANYTHING YOU LIKE DELECANCYS TE LEGT NOT MUTH GOOD GO OT YHORTY",
+      "label": "uncertain",
+      "confidence": 0.3844,
+      "scores": {
+        "normal": 0.3844,
+        "offensive": 0.2961,
+        "hate": 0.3195
+      }
+    },
+    {
+      "start_time": 90.0,
+      "end_time": 120.0,
+      "text": "ORNENTIAL EXIONGET WITH IGAT TO AS GOOD OF YOU KNOW FALL OUT OF THE BUT LI FOR JEOL FOR DIN ON  O DAMPLA PLD AN ELL HOW WERE YOOU I AI CAM HERE TURN TO EITSE AM PERFECT YOU NOW BILLY BUSSI LET I SEE YOU I DO AT ARIENITY AGAL",
+      "label": "uncertain",
+      "confidence": 0.4133,
+      "scores": {
+        "normal": 0.4133,
+        "offensive": 0.28,
+        "hate": 0.3067
+      }
+    },
+    {
+      "start_time": 120.0,
+      "end_time": 150.0,
+      "text": "ELL THANK YOU ARE YOU READY ME SOBSTARK WE'RE READY LET'S GO MAKE ME A SOAB STON OT A LITTLE HOGBY DOTLY TUS GOT UP U WEN I CAN GO  AXCELLENTLY MALANI A LOD IS A WOAS YO IS GOT UP  ASHWIS O MA VERY EIGO EXCELLENTWELL YOU'LL HAV A NICE COAST ON YOUR GOOD YETH THAT'S THE  YOU ANDOI DONT ME SHUST WO IS A BEAUTIFUL WOMAN WO UL NOT E IS TH CAADALITE AAS O I'M SORRY COME HERE A LITTLE LILEGA IN IDY I  LI I IN I FEEL NOW I SHAN NET SNORE TO WALK NEXT TO THE GARLY AS",
+      "label": "uncertain",
+      "confidence": 0.3746,
+      "scores": {
+        "normal": 0.3746,
+        "offensive": 0.2975,
+        "hate": 0.3279
+      }
+    },
+    {
+      "start_time": 150.0,
+      "end_time": 180.0,
+      "text": "DI YOU GET THE MILK THERE WE GOD HAD'S GO MUCH MARRY IT FOR HADS BATTER IF YOU HAD TO CHOOSE HONESTY BETWEEN ONE OF US MEAR THE DON GO O NO THAT SELF GISTATIONER TISERS IF YOU HD YOU HAD TO TAKE ONE OF US AS IT DID  THI IF ON NOW I REALLY YET NOTHING BUT REMED U WHICH WY MAKE RAT SAY WE GO REPERRED AI THE DAM YOURE YOS OMAN LEAVE HERE COQET WIT MY GIR COQUET YOU GEN O YOUR  FINISH YOU MAY MARRY DO O IO YO  GONG TO GO TOASIP ALL YOU UNDER HESN",
+      "label": "uncertain",
+      "confidence": 0.3818,
+      "scores": {
+        "normal": 0.3818,
+        "offensive": 0.2792,
+        "hate": 0.339
+      }
+    },
+    {
+      "start_time": 180.0,
+      "end_time": 190.97,
+      "text": "EME",
+      "label": "uncertain",
+      "confidence": 0.4065,
+      "scores": {
+        "normal": 0.4065,
+        "offensive": 0.2803,
+        "hate": 0.3132
+      }
+    }
+  ],
+  "summary": {
+    "total_segments": 7,
+    "hate_segments": 0,
+    "offensive_segments": 0,
+    "normal_segments": 0,
+    "uncertain_segments": 7,
+    "hate_percentage": 0.0
+  }
+}
