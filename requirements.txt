@@ -1,18 +1,30 @@
-# Core Framework
+# Web Framework
 fastapi
 uvicorn[standard]
 python-multipart
 streamlit
 
-# ML
+# ML & Audio Processing
 torch
+torchaudio
+transformers==4.41.0
+accelerate>=0.30.0
+faster-whisper==1.2.0
+librosa
+soundfile
 
-# Visualization
+# Data & Analysis
+numpy
+scipy
+pandas
+scikit-learn
+datasets>=2.14.0,<2.15.0
+evaluate
+
+# Utilities
 plotly
-
-# API & HTTP
 requests
-
-# Configuration & Environment
+yt-dlp
+xgboost
 pydantic
 pydantic-settings
