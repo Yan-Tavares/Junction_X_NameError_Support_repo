@@ -300,9 +300,8 @@ def describe_speech(wav_file):
 # Example usage:
 if __name__ == "__main__":
     
-    
     #############################
-    file_or_link = 'https://www.youtube.com/watch?v=J7GY1Xg6X20'
+    file_or_link = 'https://www.youtube.com/watch?v=FDFdroN7d0w'
     #############################
 
     print("Starting script...")
