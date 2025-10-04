@@ -1,0 +1,19 @@
+# custom
+project.md
+SETUP.md
+
+# Python
+__pycache__/
+*.pyc
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# IDE
+.vscode/
+
+# Environment variables
+.env
