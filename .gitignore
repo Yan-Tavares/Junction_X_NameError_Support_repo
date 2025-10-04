@@ -2,6 +2,7 @@
 project.md
 SETUP.md
 /models
+/out
 
 # Python
 __pycache__/

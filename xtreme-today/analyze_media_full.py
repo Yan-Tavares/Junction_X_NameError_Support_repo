@@ -15,8 +15,25 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 def download_audio(url: str, out_dir: Path) -> Path:
     out_dir.mkdir(parents=True, exist_ok=True)
     templ = out_dir / "%(id)s.%(ext)s"
-    cmd = ["yt-dlp", "-x", "--audio-format", "wav", "--audio-quality", "0", "-o", str(templ), url]
-    subprocess.run(cmd, check=True)
+    # Add more options for better download
+    cmd = [
+        "yt-dlp",
+        "-x",  # Extract audio
+        "--audio-format", "wav",
+        "--audio-quality", "0",
+        "--force-overwrites",  # Overwrite if exists
+        "--no-playlist",  # Don't download playlists
+        "--extract-audio",  # Make sure we get audio
+        "--prefer-ffmpeg",  # Prefer ffmpeg for conversion
+        "-o", str(templ),
+        url
+    ]
+    try:
+        subprocess.run(cmd, check=True, capture_output=True, text=True)
+    except subprocess.CalledProcessError as e:
+        print(f"Error during download: {e.stderr}")
+        raise
+    
     wavs = sorted(out_dir.glob("*.wav"), key=lambda p: p.stat().st_mtime, reverse=True)
     if not wavs:
         raise RuntimeError("No WAV produced by yt-dlp.")
@@ -74,15 +91,15 @@ def whisper_transcribe(path: Path, model_size="medium"):
         condition_on_previous_text=True,  # Help with context
         language="en",
         task="transcribe",
-        beam_size=10,  # Increase beam size for better accuracy
-        best_of=10,
-        temperature=0.0,  # Be deterministic
-        initial_prompt="This is a conversation or speech that may contain emotional content.",
+        beam_size=5,  # Balance between accuracy and speed
+        best_of=5,
+        temperature=0.2,  # Allow some variance for better results
+        initial_prompt="This is a news or documentary video that may contain discussion about hate speech and social issues.",
         vad_filter=True,
         vad_parameters=dict(
-            min_silence_duration_ms=100,  # Very short silence duration
-            speech_pad_ms=30,  # Minimal padding
-            threshold=0.2  # More sensitive to speech
+            min_silence_duration_ms=500,  # Longer silence detection
+            speech_pad_ms=100,  # More padding
+            threshold=0.3  # Less sensitive to avoid fragmenting sentences
         )
     )
     
@@ -289,7 +306,7 @@ def main():
 
     # default example if nothing passed
     if not args.url and not args.path:
-        example_url = "https://www.youtube.com/watch?v=hkSj-QapfZo"
+        example_url = "https://www.youtube.com/watch?v=2PXLvKT1U4M&t=1s"
         print(f"No --url/--path provided — using example video: {example_url}")
         args.url = example_url
 
@@ -336,28 +353,42 @@ def main():
         p_offensive = float(p[1])
         p_hatespeech = float(p[2])
         
-        # Ustal pewność i etykietę
-        if p_hatespeech >= 0.45:
-            label = "hatespeech"
-            conf = p_hatespeech
-        elif p_offensive >= 0.45:
-            label = "offensive"
-            conf = p_offensive
-        elif p_normal >= 0.45:
-            label = "normal"
-            conf = p_normal
+        # Zastosuj wagi dla klas (zwiększona waga dla normal)
+        weights = {
+            "normal": 1.3,    # 30% większa waga dla normal
+            "offensive": 1.1,  # 10% większa waga
+            "hatespeech": 1.0  # bazowa waga
+        }
+        
+        # Zastosuj wagi do prawdopodobieństw
+        p_normal = p_normal * weights["normal"]
+        p_offensive = p_offensive * weights["offensive"]
+        p_hatespeech = p_hatespeech * weights["hatespeech"]
+        
+        # Normalizuj prawdopodobieństwa
+        total = p_normal + p_offensive + p_hatespeech
+        p_normal = p_normal / total
+        p_offensive = p_offensive / total
+        p_hatespeech = p_hatespeech / total
+        
+        # Zmniejszony margines przewagi
+        margin = 0.02  # 2% przewagi
+        
+        sorted_probs = sorted([(p_normal, "normal"), (p_offensive, "offensive"), (p_hatespeech, "hatespeech")], 
+                              reverse=True)
+        
+        highest_prob, highest_label = sorted_probs[0]
+        second_prob, _ = sorted_probs[1]
+        
+        # Jeśli różnica jest większa niż margines
+        if highest_prob - second_prob > margin:
+            label = highest_label
+            conf = highest_prob
         else:
-            # Jeśli żadna klasa nie przekracza progu, weź najwyższą
-            max_prob = max(p_normal, p_offensive, p_hatespeech)
-            if max_prob == p_hatespeech:
-                label = "hatespeech"
-                conf = p_hatespeech
-            elif max_prob == p_offensive:
-                label = "offensive"
-                conf = p_offensive
-            else:
-                label = "normal"
-                conf = p_normal
+            # Jeśli różnica jest mniejsza niż margines, weź najwyższą wartość
+            # ale zachowaj etykietę jako "uncertain"
+            label = "uncertain"
+            conf = highest_prob
 
         hate_spans.append({**s, "label": label, "confidence": float(conf)})
 

@@ -95,7 +95,7 @@ def main():
         eval_strategy = "no"
         use_early_stopping = False
     else:
-        n_epochs = args.epochs
+        n_epochs = args.epochs * 2  # Podwajamy liczbę epok
         eval_strategy = "epoch"
         use_early_stopping = True
 

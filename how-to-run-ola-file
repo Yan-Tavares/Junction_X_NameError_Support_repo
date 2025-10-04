@@ -6,3 +6,6 @@ python xtreme-today/analyze_media_full.py \
   --url "https://www.youtube.com/watch?v=7QkJ6IYikWo" \
   --out_dir out \
   --fast_debug --skip_emo
+
+New Version:
+python xtreme-today/analyze_media_full.py --url "https://www.youtube.com/watch?v=2PXLvKT1U4M" --out_dir out --skip_emo --text_model models/hatexplain-roberta-ft --whisper_size medium

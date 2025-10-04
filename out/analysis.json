@@ -1,61 +1,12 @@
 {
-  "audio_path": "out/example.wav",
+  "audio_path": "out/2PXLvKT1U4M.wav",
   "hate_spans": [
     {
-      "start": 0.0,
-      "end": 5.46,
-      "text": "Yesterday was a bad day for those with AI paranoia, and a great day for those who are thirsty for Sam Altman.",
-      "label": "uncertain",
-      "confidence": 0.351513147354126
-    },
-    {
-      "start": 5.66,
-      "end": 14.26,
-      "text": "That's because OpenAI released Sora 2, their latest video generation model that's more physically accurate, realistic, and controllable than anything we've seen before.",
-      "label": "uncertain",
-      "confidence": 0.34539198875427246
-    },
-    {
-      "start": 14.44,
-      "end": 25.98,
-      "text": "Yes, I did have to buy my invite code off eBay because I have no friends in real life, but it was worth it for the constant stream of hyper-personalized AI-generated content that's been rotting my dopamine sensors for the last 24 hours.",
-      "label": "uncertain",
-      "confidence": 0.3491365909576416
-    },
-    {
-      "start": 26.12,
-      "end": 30.72,
-      "text": "You might remember this video of Will Smith eating spaghetti from two years ago that took the world by storm.",
-      "label": "uncertain",
-      "confidence": 0.3465474545955658
-    },
-    {
-      "start": 30.86,
-      "end": 34.26,
-      "text": "At the time, we humans joked about it because we could easily tell it was fake.",
-      "label": "uncertain",
-      "confidence": 0.34456294775009155
-    },
-    {
-      "start": 34.38,
-      "end": 45.76,
-      "text": "Then a year later, Generative AI took another leap forward, and on this very channel I said this new video of Will was nothing to joke around about. Well, here we are after another year and another leap, and it's starting to get weird.",
-      "label": "uncertain",
-      "confidence": 0.3471014201641083
-    },
-    {
-      "start": 46.04,
-      "end": 50.72,
-      "text": "Sora 2 not only creates incredibly realistic videos, but unlike the original version,",
-      "label": "uncertain",
-      "confidence": 0.3430826961994171
-    },
-    {
-      "start": 50.9,
-      "end": 57.11,
-      "text": "they now come with sound, which means we can make videos like this with a simple text prompt.",
-      "label": "uncertain",
-      "confidence": 0.3442014455795288
+      "start": 1.95,
+      "end": 8.33,
+      "text": "Hate speech is on the rise, infiltrating our societies, fueled by conspiracy theories,",
+      "label": "normal",
+      "confidence": 0.3877573703102978
     }
   ],
   "emotion_times": [],
