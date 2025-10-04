@@ -11,6 +11,12 @@ from typing import List, Dict, Optional
 import tempfile
 import os
 from pathlib import Path
+import sys
+
+# Add parent directory to path for imports
+sys.path.append(str(Path(__file__).parent.parent.parent))
+from src.pipeline import VocalFirewallAnalyzer
+from src.config import settings
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -29,52 +35,79 @@ app.add_middleware(
 )
 
 # Response models
+class SegmentInfo(BaseModel):
+    start: float
+    end: float
+    text: str
+    label: str
+    confidence: float
+
+class EmotionPeak(BaseModel):
+    time: float
+    arousal: float
+    coincides_with: Optional[str]
+    text: Optional[str]
+    span_start: Optional[float]
+    span_end: Optional[float]
+
+class EmotionAnalysis(BaseModel):
+    time_series: List[Dict]
+    peaks: List[EmotionPeak]
+
 class AnalysisResult(BaseModel):
+    audio_path: str
     transcript: str
     overall_label: str
     confidence: float
-    categories: Dict[str, float]
-    flagged_segments: List[Dict]
+    segments: List[SegmentInfo]
+    hate_spans: List[SegmentInfo]
+    emotion_analysis: Optional[EmotionAnalysis] = None
+    flagged_count: int
+    total_segments: int
 
 class HealthResponse(BaseModel):
     status: str
     version: str
+    models_loaded: bool
 
-# Global variables for models (to be initialized on startup)
-whisper_model = None
-classifier_model = None
-tokenizer = None
+# Global analyzer instance
+analyzer: Optional[VocalFirewallAnalyzer] = None
 
 @app.on_event("startup")
 async def load_models():
     """Load ML models on startup"""
-    global whisper_model, classifier_model, tokenizer
+    global analyzer
     
     try:
-        # TODO: Import and initialize your models here
-        # from faster_whisper import WhisperModel
-        # from transformers import AutoTokenizer, AutoModelForSequenceClassification
-        
-        # whisper_model = WhisperModel("medium")
-        # tokenizer = AutoTokenizer.from_pretrained("your-model-path")
-        # classifier_model = AutoModelForSequenceClassification.from_pretrained("your-model-path")
-        
-        print("✅ Models loaded successfully")
+        print("🚀 Initializing Vocal Firewall Analyzer...")
+        analyzer = VocalFirewallAnalyzer(
+            whisper_model_size=settings.WHISPER_MODEL_SIZE,
+            text_model_path=settings.TEXT_MODEL_PATH,
+            enable_emotion=settings.ENABLE_EMOTION_ANALYSIS,
+            fast_mode=settings.FAST_MODE
+        )
+        print("✅ All models loaded successfully")
     except Exception as e:
         print(f"⚠️ Warning: Could not load models: {e}")
-        print("API will run in mock mode")
+        print("API will run in degraded mode")
+        analyzer = None
 
 @app.get("/", response_model=HealthResponse)
 async def root():
     """Health check endpoint"""
-    return HealthResponse(status="ok", version="0.1.0")
+    return HealthResponse(
+        status="ok", 
+        version="1.0.0",
+        models_loaded=analyzer is not None
+    )
 
 @app.get("/health", response_model=HealthResponse)
 async def health_check():
     """Detailed health check"""
     return HealthResponse(
-        status="healthy" if whisper_model and classifier_model else "degraded",
-        version="0.1.0"
+        status="healthy" if analyzer else "degraded",
+        version="1.0.0",
+        models_loaded=analyzer is not None
     )
 
 @app.post("/analyze", response_model=AnalysisResult)
@@ -91,12 +124,19 @@ async def analyze_audio(file: UploadFile = File(...)):
     
     # Validate file type
     allowed_extensions = {'.wav', '.mp3', '.ogg', '.flac', '.m4a', '.webm'}
-    file_ext = Path(file.filename).suffix.lower()
     
-    if file_ext not in allowed_extensions:
+    if not file.filename:
         raise HTTPException(
             status_code=400,
-            detail=f"Unsupported file type: {file_ext}. Allowed: {allowed_extensions}"
+            detail="No filename provided"
+        )
+    
+    file_ext = Path(file.filename).suffix.lower()
+    
+    if not file_ext or file_ext not in allowed_extensions:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported file type: {file_ext or 'unknown'}. Allowed: {allowed_extensions}"
         )
     
     # Save uploaded file temporarily
@@ -133,37 +173,70 @@ def analyze_audio_file(audio_path: str) -> AnalysisResult:
         AnalysisResult object
     """
     
-    # TODO: Implement actual analysis using your models
-    # This is a mock implementation for MVP
+    if not analyzer:
+        raise Exception("Analyzer not initialized. Models may not be loaded.")
     
     try:
-        # Step 1: Transcribe audio
-        # segments, _ = whisper_model.transcribe(audio_path, word_timestamps=True)
-        transcript = "This is a mock transcript. Replace with actual Whisper output."
+        # Run full analysis pipeline
+        results = analyzer.analyze_audio(Path(audio_path))
         
-        # Step 2: Classify text
-        # Use your classifier model here
-        categories = {
-            "derogatory": 0.05,
-            "exclusionary": 0.03,
-            "dangerous": 0.02
-        }
+        # Count flagged segments (hate or uncertain)
+        flagged_segments = [
+            s for s in results["hate_spans"]
+            if s["label"] in ["hate", "uncertain"] and s["confidence"] > settings.CONFIDENCE_THRESHOLD
+        ]
         
-        # Step 3: Determine overall label
-        max_category = max(categories.items(), key=lambda x: x[1])
-        overall_label = "safe" if max_category[1] < 0.5 else max_category[0]
-        confidence = 1.0 - max_category[1] if overall_label == "safe" else max_category[1]
+        # Determine overall label
+        hate_count = sum(1 for s in results["hate_spans"] if s["label"] == "hate")
         
-        # Step 4: Extract flagged segments with timestamps
-        flagged_segments = []
-        # TODO: Implement segment extraction logic
+        if hate_count > 0:
+            overall_label = "hate_detected"
+            # Average confidence of hate segments
+            hate_confs = [s["confidence"] for s in results["hate_spans"] if s["label"] == "hate"]
+            confidence = sum(hate_confs) / len(hate_confs) if hate_confs else 0.0
+        elif len(flagged_segments) > 0:
+            overall_label = "uncertain"
+            confidence = sum(s["confidence"] for s in flagged_segments) / len(flagged_segments)
+        else:
+            overall_label = "safe"
+            # Average confidence of non-hate segments
+            safe_confs = [s["confidence"] for s in results["hate_spans"] if s["label"] == "non-hate"]
+            confidence = sum(safe_confs) / len(safe_confs) if safe_confs else 1.0
+        
+        # Format segments for response
+        segment_infos = [
+            SegmentInfo(
+                start=s["start"],
+                end=s["end"],
+                text=s["text"],
+                label=s["label"],
+                confidence=s["confidence"]
+            )
+            for s in results["hate_spans"]
+        ]
+        
+        # Format emotion analysis if available
+        emotion_analysis = None
+        if results.get("emotion_analysis"):
+            emo = results["emotion_analysis"]
+            emotion_analysis = EmotionAnalysis(
+                time_series=emo.get("time_series", []),
+                peaks=[
+                    EmotionPeak(**peak)
+                    for peak in emo.get("peaks", [])
+                ]
+            )
         
         return AnalysisResult(
-            transcript=transcript,
+            audio_path=results["audio_path"],
+            transcript=results["transcript"],
             overall_label=overall_label,
-            confidence=confidence,
-            categories=categories,
-            flagged_segments=flagged_segments
+            confidence=float(confidence),
+            segments=segment_infos,
+            hate_spans=segment_infos,
+            emotion_analysis=emotion_analysis,
+            flagged_count=len(flagged_segments),
+            total_segments=len(results["hate_spans"])
         )
         
     except Exception as e:
