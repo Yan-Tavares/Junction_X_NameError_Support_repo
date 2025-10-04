@@ -84,13 +84,6 @@ def whisper_transcribe(path: Path, model_size="medium"):
             speech_pad_ms=30,  # Minimal padding
             threshold=0.2  # More sensitive to speech
         )
-        initial_prompt="This is a conversation or speech that may contain emotional content.",
-        vad_filter=True,
-        vad_parameters=dict(
-            min_silence_duration_ms=500,
-            speech_pad_ms=200,
-            threshold=0.35
-        )
     )
     
     # Second pass with different VAD settings
@@ -321,26 +314,50 @@ def main():
     # 2) Text classifier
     tok, clf = load_text_model(args.text_model)
     probs = classify_sentences(sents, tok, clf)
+    
+    # Debug: print probabilities
+    print("\nDebug - Classification probabilities:")
+    for i, (s, p) in enumerate(zip(sents, probs)):
+        print(f"\nSegment {i+1}:")
+        print(f"Text: {s['text']}")
+        print(f"Probabilities: {p}")
+        print(f"Max probability: {p.max():.4f} for class {p.argmax()}")
 
-    labels = ["non-hate", "hate"] if probs.shape[1] == 2 else [f"class_{i}" for i in range(probs.shape[1])]
+
+    labels = ["normal", "offensive", "hatespeech"]  # Odpowiednie klasy z modelu
     hate_spans = []
     for s, p in zip(sents, probs):
         p = p.astype(float)
         li = int(p.argmax())
         conf_max = float(p[li])
 
-        if probs.shape[1] == 2:
-            p_hate = float(p[1])
-            if p_hate >= 0.70:
-                label = "hate"; conf = p_hate
-            elif p_hate <= 0.30:
-                label = "non-hate"; conf = 1.0 - p_hate
-            else:
-                label = "uncertain"; conf = max(p_hate, 1.0 - p_hate)
+        # Pobierz prawdopodobieństwa dla każdej klasy
+        p_normal = float(p[0])
+        p_offensive = float(p[1])
+        p_hatespeech = float(p[2])
+        
+        # Ustal pewność i etykietę
+        if p_hatespeech >= 0.45:
+            label = "hatespeech"
+            conf = p_hatespeech
+        elif p_offensive >= 0.45:
+            label = "offensive"
+            conf = p_offensive
+        elif p_normal >= 0.45:
+            label = "normal"
+            conf = p_normal
         else:
-            # multi-class: wymagaj min pewności
-            label = labels[li] if conf_max >= 0.60 else "uncertain"
-            conf = conf_max
+            # Jeśli żadna klasa nie przekracza progu, weź najwyższą
+            max_prob = max(p_normal, p_offensive, p_hatespeech)
+            if max_prob == p_hatespeech:
+                label = "hatespeech"
+                conf = p_hatespeech
+            elif max_prob == p_offensive:
+                label = "offensive"
+                conf = p_offensive
+            else:
+                label = "normal"
+                conf = p_normal
 
         hate_spans.append({**s, "label": label, "confidence": float(conf)})
 
