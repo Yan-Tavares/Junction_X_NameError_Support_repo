@@ -1,0 +1,12 @@
+# Audio processing
+
+
+# Deep learning
+torch
+
+# Scientific computing
+numpy
+scipy
+
+# Data manipulation
+pandas
