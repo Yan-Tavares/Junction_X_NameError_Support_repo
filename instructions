@@ -1,0 +1,760 @@
+
+You said:
+at the beggining i created an algorithm located in files "analyze_media_full.py" and "train_text_hatexplain.py". it worked and my desired output would be to classify if something is extermist, not extermist or potentially extermist. Now we received Test data from YouTube:
+1. https://www.youtube.com/watch?v=ZMhyG27O480
+2. https://www.youtube.com/watch?v=xCnRJvD6kIw
+3. https://www.youtube.com/watch?v=v8SargFU548
+4. https://www.youtube.com/watch?v=1lxmsPbyFio and we are trying to create a framework written in files "vibechecker.py" "sentiment_base.py" "ensemble.py" so that our app frontend is in "main.py", we also have "config.py" and we are teying to recefine our solution in "analyzer.py". how shall i program it so that it will work and implement inside a few models to classify extermist, not extermist or potentially extermist behaviour. i want a few models so that they will give me an output (each will give me an output) and then i can compare them. at the beginning we wanted to analize it so that it takes speech to text and cuts it in 10 seconds chunks and then analyses sentiment, but 10 seconds approach is not good, right? do it smarter but with my new framerworks and this description of course 
+ChatGPT said:
+
+Thought for 44s
+Awesome—thanks for the clear brief. You already have most of the scaffolding in place; you just need to (1) segment smarter, (2) wrap a few complementary models behind a common interface, and (3) fuse them with a sensible decision policy.
+
+Below is a concrete, drop-in plan with code you can paste into your existing files. It keeps your file layout (vibechecker.py, sentiment_base.py, ensemble.py, analyzer.py, main.py, config.py) and uses your earlier training script (train_text_hatexplain.py) as the primary fine-tuned text classifier.
+
+1) Smarter segmentation (ditch fixed 10s)
+Why 10s chunks are weak: they cut across sentence boundaries, dilute meaning, and inflate false positives/negatives.
+
+Better approach (hybrid):
+
+VAD pass using Whisper’s own timestamps (or Silero VAD) to drop long silences/noise.
+
+ASR-driven segmentation: start from Whisper’s word/segment timestamps. Merge consecutive segments into utterances using:
+
+pause > 0.8s (or local energy dip),
+
+punctuation boundaries (.?!),
+
+soft limits: max_duration≈25s or max_chars≈350 to avoid overlong inputs.
+
+Keep mapping from utterance → original timestamps so you can surface evidence.
+
+This yields semantically coherent chunks that are short enough for transformers but long enough to carry context.
+
+2) Models to ensemble (each returns 3-class probs)
+Keep a common label order everywhere:
+
+LABELS = ["extremist", "potentially_extremist", "non_extremist"]
+Recommended diversity (all text-first; one audio-side “vibe” for complement):
+
+HateXplain fine-tuned classifier (your train_text_hatexplain.py output, e.g., RoBERTa). Primary signal for extremist content.
+
+Toxicity/Hate off-the-shelf (e.g., unitary/toxic-bert or martin-ha/toxic-comment-model). Not trained on extremism specifically, but catches incendiary language/insults that often co-occur. Map its single/6-way outputs to your 3 classes with a calibrated transform.
+
+Zero-shot NLI (e.g., facebook/bart-large-mnli or cross-encoder/nli-deberta). Prompt with hypotheses like “this text expresses extremist support/propaganda”. Useful when the primary model is uncertain or the topic is niche.
+
+Keyword/heuristic scorer (lightweight, explainable). Weighted lexicon (organizations, slogans, slurs) + context rules to down-weight neutral references (news reporting). Keeps your system robust when ML is uncertain.
+
+Audio prosody “VibeChecker” (optional, conservative). Flags agitation/intensity (pitch/energy spikes, shouting) as a weak prior; never decisive on its own, but can push borderline cases into “potentially”.
+
+Each model implements:
+
+input_type = "text" or "audio"
+
+predict(list_of_texts_or_audio) → np.ndarray of shape (n_chunks, 3) with softmaxed probabilities.
+
+Your ensemble.py is already close—just ensure it routes audio/text correctly and averages with weights.
+
+3) Decision policy (turn model outputs into a final label)
+Per utterance, you’ll have K model predictions (3-dim probs). Compute weighted average → utterance probs.
+
+Then aggregate across utterances into a video-level decision:
+
+Immediate “extremist”:
+
+Any utterance with p(extremist) >= 0.85 and at least 2 models agree (>0.6) → final extremist.
+
+Potentially extremist:
+
+Mean across utterances p(extremist) ∈ [0.4, 0.85) or
+
+At least 2 utterances p(extremist) ≥ 0.6 or
+
+High lexicon score but neutral-report rule uncertain.
+
+Else: non_extremist.
+
+Always return:
+
+video-level label + confidence,
+
+top 3 contributing utterances (timestamps + text + per-model scores) for explainability.
+
+CODE: concrete implementations
+sentiment_base.py (keep your base; add a tiny helper)
+# sentiment_base.py
+
+import numpy as np
+
+LABELS = ["extremist", "potentially_extremist", "non_extremist"]
+
+class BaseSentimentModel:
+    def __init__(self, **kwargs):
+        self.labels = LABELS
+        self.input_type = "text"
+
+    def predict(self, split_text):
+        raise NotImplementedError()
+
+def to_prob3(x):
+    """Ensure output is (n,3) probs."""
+    x = np.asarray(x, dtype=np.float32)
+    if x.ndim == 1: x = x[None, :]
+    # softmax if not already probabilities
+    ex = np.exp(x - x.max(axis=1, keepdims=True))
+    p = ex / ex.sum(axis=1, keepdims=True)
+    # If shape != 3 you must map externally.
+    return p
+Add concrete models (make a new file or put near base)
+# models_text.py
+
+import numpy as np, torch
+from transformers import AutoTokenizer, AutoModelForSequenceClassification, pipeline
+from sentiment_base import BaseSentimentModel, LABELS, to_prob3
+
+class HateXplainModel(BaseSentimentModel):
+    def __init__(self, model_path="models/hatexplain-roberta-mini", device=None):
+        super().__init__()
+        self.input_type = "text"
+        self.labels = LABELS
+        self.device = 0 if (device in (0, "cuda") or torch.cuda.is_available()) else -1
+        self.tokenizer = AutoTokenizer.from_pretrained(model_path)
+        self.model = AutoModelForSequenceClassification.from_pretrained(model_path)
+        self.pipe = pipeline("text-classification", model=self.model,
+                             tokenizer=self.tokenizer, device=self.device,
+                             return_all_scores=True, truncation=True)
+
+        # Ensure your fine-tuned head outputs 3 logits in LABELS order.
+        self.idxs = [0,1,2]  # map model indices → LABELS order if needed
+
+    def predict(self, texts):
+        outs = self.pipe(texts)
+        # outs: list of list[{'label':..., 'score':...}]
+        P = []
+        for o in outs:
+            p = [0,0,0]
+            for i, comp in enumerate(o):
+                p[self.idxs[i]] = comp["score"]
+            P.append(p)
+        return np.asarray(P, dtype=np.float32)
+
+class ToxicityModel(BaseSentimentModel):
+    """
+    Map toxicity → {extremist, potentially, non} with a conservative rule:
+    high toxicity -> lift 'potentially'; extreme toxicity + extreme lexicon (from analyzer) -> 'extremist'.
+    For pure text-only, we map by thresholds.
+    """
+    def __init__(self, model_name="unitary/toxic-bert", device=None):
+        super().__init__()
+        self.input_type = "text"
+        self.labels = LABELS
+        self.device = 0 if (device in (0, "cuda") or torch.cuda.is_available()) else -1
+        self.pipe = pipeline("text-classification", model=model_name, device=self.device, truncation=True)
+    
+    def predict(self, texts):
+        # returns [{'label': 'toxic', 'score': p}] or multi-label depending on model; standardize:
+        probs = []
+        for t in texts:
+            out = self.pipe(t)
+            if isinstance(out, list): out = out[0]
+            tox = float(out["score"]) if "score" in out else float(out.get("toxic", 0.0))
+            # heuristic mapping:
+            if tox >= 0.8:
+                p = [0.45, 0.45, 0.10]
+            elif tox >= 0.5:
+                p = [0.20, 0.60, 0.20]
+            elif tox >= 0.2:
+                p = [0.07, 0.28, 0.65]
+            else:
+                p = [0.03, 0.12, 0.85]
+            probs.append(p)
+        return np.asarray(probs, dtype=np.float32)
+
+class ZeroShotExtremismNLI(BaseSentimentModel):
+    def __init__(self, model_name="facebook/bart-large-mnli", device=None):
+        super().__init__()
+        self.input_type = "text"
+        self.labels = LABELS
+        self.device = 0 if (device in (0, "cuda") or torch.cuda.is_available()) else -1
+        self.pipe = pipeline("zero-shot-classification", model=model_name, device=self.device)
+
+        self.candidate_labels = [
+            "the text supports or praises extremist ideology or organizations",
+            "the text may suggest potential extremist leanings or borderline propaganda",
+            "the text clearly does not support extremist ideology"
+        ]
+        # map to LABELS order:
+        self.map_idx = [0,1,2]
+
+    def predict(self, texts):
+        res = self.pipe(texts, candidate_labels=self.candidate_labels, multi_label=False)
+        if not isinstance(res, list): res = [res]
+        P = []
+        for r in res:
+            # r['scores'] aligned to r['labels']
+            order = [r["labels"].index(lbl) for lbl in self.candidate_labels]
+            scores = np.asarray([r["scores"][i] for i in order], dtype=np.float32)
+            scores /= scores.sum() + 1e-9
+            P.append(scores)
+        return np.asarray(P, dtype=np.float32)
+
+class HeuristicLexiconModel(BaseSentimentModel):
+    def __init__(self, lexicon=None):
+        super().__init__()
+        self.input_type = "text"
+        self.labels = LABELS
+        # {pattern: weight}
+        self.lex = lexicon or {
+            r"\b(islamic state|isis|daesh|al[- ]qaeda|kkk|nazi|white power)\b": 1.0,
+            r"\b(heil hitler|14/88|14 words|blood and soil)\b": 1.2,
+            r"\b(caliphate|jihadist)\b": 0.6,
+            r"\b(gas the [^\s]+|ethnic cleansing|race war)\b": 1.3,
+        }
+
+    def predict(self, texts):
+        P = []
+        for t in texts:
+            t_low = t.lower()
+            score = 0.0
+            for pat, w in self.lex.items():
+                if __import__("re").search(pat, t_low):
+                    score += w
+            if score >= 2.0:
+                p = [0.65, 0.30, 0.05]
+            elif score >= 1.0:
+                p = [0.30, 0.55, 0.15]
+            elif score >= 0.4:
+                p = [0.10, 0.35, 0.55]
+            else:
+                p = [0.05, 0.10, 0.85]
+            P.append(p)
+        return np.asarray(P, dtype=np.float32)
+vibechecker.py (prosody-only weak prior)
+# vibechecker.py
+import numpy as np
+import librosa
+
+class VibeChecker:
+    def __init__(self, sr=16000):
+        self.input_type = "audio"
+        self.sr = sr
+
+    def _features(self, y):
+        y = np.asarray(y, dtype=np.float32)
+        if y.ndim > 1: y = y.mean(axis=0)
+        rms = librosa.feature.rms(y=y).mean()
+        zcr = librosa.feature.zero_crossing_rate(y).mean()
+        try:
+            f0, _, _ = librosa.pyin(y, fmin=80, fmax=500, sr=self.sr)
+            pitch = np.nanmean(f0)
+        except Exception:
+            pitch = 0.0
+        return rms, zcr, pitch
+
+    def predict(self, audio_chunks):
+        """
+        audio_chunks: list of mono numpy arrays (already sliced per utterance) at self.sr
+        Returns weak priors over 3 classes.
+        """
+        out = []
+        for y in audio_chunks:
+            rms, zcr, pitch = self._features(y)
+            intensity = float(rms > 0.05) + float(zcr > 0.12) + float(pitch and pitch > 260)
+            if intensity >= 2:
+                p = [0.18, 0.54, 0.28]  # more 'potentially' when agitated
+            elif intensity >= 1:
+                p = [0.10, 0.32, 0.58]
+            else:
+                p = [0.06, 0.14, 0.80]
+            out.append(p)
+        return np.asarray(out, dtype=np.float32)
+ensemble.py (your file is fine—just ensure routing + weighting)
+Make sure it:
+
+runs Whisper once (for text) if needed,
+
+calls each model with what it expects,
+
+returns (n_chunks, 3) after weighted average.
+
+(From your preview, it already does this—keep your weights and optional bias.)
+
+analyzer.py (segment smarter + orchestrate)
+Add/replace the core segmentation + analysis methods:
+
+# analyzer.py (add/imports as needed)
+import numpy as np, re
+import librosa, soundfile as sf
+from faster_whisper import WhisperModel
+from sentiment_base import LABELS
+from models_text import HateXplainModel, ToxicityModel, ZeroShotExtremismNLI, HeuristicLexiconModel
+from vibechecker import VibeChecker
+from ensemble import Ensemble
+
+PAUSE_SEC = 0.8
+MAX_UTT_SEC = 25.0
+MAX_UTT_CHARS = 350
+
+class UnifiedAnalyzer:
+    def __init__(self, whisper_model_size="medium", text_model_path="models/hatexplain-roberta-mini", fast_mode=False):
+        self.whisper = WhisperModel(whisper_model_size, device="cuda" if torch.cuda.is_available() else "cpu", compute_type="float16" if torch.cuda.is_available() else "int8")
+        self.sr = 16000
+        # Models
+        m1 = HateXplainModel(text_model_path)
+        m2 = ToxicityModel()
+        m3 = ZeroShotExtremismNLI()
+        m4 = HeuristicLexiconModel()
+        m5 = VibeChecker(sr=self.sr)
+        self.models_text = [m1, m2, m3, m4]
+        self.model_audio = m5
+        self.ensemble = Ensemble(models=[m5, m1, m2, m3, m4])  # audio first, then texts
+
+    def _transcribe(self, wav_path):
+        segments, _ = self.whisper.transcribe(str(wav_path), word_timestamps=True, vad_filter=True)
+        segs = []
+        for s in segments:
+            text = s.text.strip()
+            if not text: continue
+            segs.append({
+                "start": float(s.start),
+                "end": float(s.end),
+                "text": text
+            })
+        return segs
+
+    def _merge_segments(self, segs):
+        """ASR-aware merging into utterances."""
+        merged = []
+        if not segs: return merged
+        cur = {"start": segs[0]["start"], "end": segs[0]["end"], "text": segs[0]["text"]}
+        for s in segs[1:]:
+            gap = s["start"] - cur["end"]
+            new_text = (cur["text"] + " " + s["text"]).strip()
+            too_long = (s["end"] - cur["start"]) > MAX_UTT_SEC or len(new_text) > MAX_UTT_CHARS
+            boundary_punct = bool(re.search(r"[\.!\?]$", cur["text"]))
+            if gap > PAUSE_SEC or too_long or boundary_punct:
+                merged.append(cur)
+                cur = {"start": s["start"], "end": s["end"], "text": s["text"]}
+            else:
+                cur["end"] = s["end"]
+                cur["text"] = new_text
+        merged.append(cur)
+        return merged
+
+    def _slice_audio(self, wav_path, utterances):
+        y, sr = librosa.load(str(wav_path), sr=self.sr, mono=True)
+        chunks = []
+        for u in utterances:
+            a = int(u["start"] * self.sr)
+            b = int(u["end"] * self.sr)
+            chunks.append(y[a:b].copy())
+        return chunks
+
+    def analyze(self, wav_path):
+        segs = self._transcribe(wav_path)
+        utts = self._merge_segments(segs)
+        audio_chunks = self._slice_audio(wav_path, utts)
+        texts = [u["text"] for u in utts]
+
+        # Per-model predictions
+        preds = {}
+        preds["vibe"] = self.model_audio.predict(audio_chunks) if audio_chunks else np.zeros((0,3))
+        preds["hatexplain"] = self.models_text[0].predict(texts) if texts else np.zeros((0,3))
+        preds["toxicity"]   = self.models_text[1].predict(texts) if texts else np.zeros((0,3))
+        preds["nli"]        = self.models_text[2].predict(texts) if texts else np.zeros((0,3))
+        preds["lexicon"]    = self.models_text[3].predict(texts) if texts else np.zeros((0,3))
+
+        # Ensemble (weighted average)
+        # Reuse your Ensemble class if you want; here we do a simple average for clarity:
+        stacked = np.stack([preds[k] for k in ["vibe","hatexplain","toxicity","nli","lexicon"]], axis=0)  # (K, N, 3)
+        weights = np.array([0.5, 2.5, 1.0, 1.2, 0.8], dtype=np.float32)[:,None,None]
+        ens = (stacked * weights).sum(axis=0) / (weights.sum(axis=0) + 1e-9)  # (N,3)
+
+        # decision per utterance + aggregate
+        ulabels = [LABELS[int(np.argmax(p))] for p in ens]
+        uconfs  = [float(np.max(p)) for p in ens]
+        final_label, final_conf = self._aggregate(ens)
+
+        return {
+            "labels": LABELS,
+            "utterances": [
+                {
+                    "start": float(u["start"]),
+                    "end": float(u["end"]),
+                    "text": u["text"],
+                    "probs": ens[i].tolist(),
+                    "label": ulabels[i],
+                    "confidence": uconfs[i],
+                    "per_model": {k: preds[k][i].tolist() for k in preds}
+                } for i, u in enumerate(utts)
+            ],
+            "final": {
+                "label": final_label,
+                "confidence": final_conf
+            }
+        }
+
+    def _aggregate(self, ens_probs):
+        # ens_probs: (N,3)
+        p_ext = ens_probs[:,0]
+        p_pot = ens_probs[:,1]
+        mean_ext = float(p_ext.mean())
+        max_ext = float(p_ext.max())
+        n_ext06 = int((p_ext >= 0.6).sum())
+
+        if max_ext >= 0.85 and n_ext06 >= 2:
+            return "extremist", max_ext
+        if (0.4 <= mean_ext < 0.85) or (n_ext06 >= 2) or (float(p_pot.mean()) >= 0.45):
+            conf = max(mean_ext, float(p_pot.mean()))
+            return "potentially_extremist", conf
+        return "non_extremist", 1.0 - mean_ext
+main.py (FastAPI endpoint glue)
+Your main.py already validates uploads. In the handler, instantiate UnifiedAnalyzer and return the JSON from analyze(temp_wav). Add a URL mode using yt-dlp if you like:
+
+# main.py (inside your POST /analyze or another endpoint)
+from analyzer import UnifiedAnalyzer
+from pathlib import Path
+import subprocess, tempfile, os
+
+analyzer = UnifiedAnalyzer(
+    whisper_model_size="medium",
+    text_model_path="models/hatexplain-roberta-mini"
+)
+
+@app.post("/analyze_url")
+async def analyze_url(payload: UrlPayload):
+    # download bestaudio to wav
+    with tempfile.TemporaryDirectory() as tmpd:
+        templ = os.path.join(tmpd, "%(id)s.%(ext)s")
+        cmd = ["yt-dlp", "-x", "--audio-format", "wav", "--audio-quality", "0", "-o", templ, payload.url]
+        subprocess.run(cmd, check=True)
+        wavs = [p for p in Path(tmpd).glob("*.wav")]
+        if not wavs:
+            raise HTTPException(status_code=400, detail="Could not download audio")
+        out = analyzer.analyze(wavs[0])
+    return JSONResponse(content=out)
+4) Calibration & QA
+Calibrate thresholds using a small validation set (some positives, some negatives, plus neutral reporting). Tweak the ensemble weights and decision thresholds.
+
+Explainability: Keep top 3 utterances with highest p(extremist) in the final JSON—makes demos and debugging much easier.
+
+Speed paths: For “fast debug”, load whisper-small, restrict to first 10 minutes, and cap utterances to 200 per video.
+
+5) Running on your 4 YouTube tests
+Add a tiny script (run_batch.py) that hits /analyze_url for:
+
+https://www.youtube.com/watch?v=ZMhyG27O480
+
+https://www.youtube.com/watch?v=xCnRJvD6kIw
+
+https://www.youtube.com/watch?v=v8SargFU548
+
+https://www.youtube.com/watch?v=1lxmsPbyFio
+
+Store each JSON to out/<ytid>.json, and optionally render a simple HTML report (utterance table with color-coded probabilities).
+
+6) Notes on false positives (reporting vs endorsement)
+Add a news-reporting safety rule: If verbs like “report”, “say”, “alleged”, “according to” + named outlet (“Reuters”, “BBC”, etc.) occur, down-weight the lexicon model by 50% on that utterance.
+
+Add a quotation heuristic: Content inside quotes often repeats slogans—reduce weight unless combined with high NLI/HateXplain confidence.
+
+7) Summary
+Replace fixed 10s with ASR/VAD + semantic merging.
+
+Ensemble (fine-tuned RoBERTa) + toxicity + NLI + lexicon + prosody.
+
+Weighted average → utterance probs → video decision with explainable evidence.
+
+Keep everything modular so you can swap/ablate models quickly.
+
+If you want, I can also give you a minimal test harness that loads a WAV from disk and prints the top suspect utterances—just say the word and I’ll paste it in the format you prefer.
+
+You said:
+Uploaded image
+may you write it? 5) Running on your 4 YouTube tests
+
+Add a tiny script (run_batch.py) that hits /analyze_url for:
+
+https://www.youtube.com/watch?v=ZMhyG27O480
+
+https://www.youtube.com/watch?v=xCnRJvD6kIw
+
+https://www.youtube.com/watch?v=v8SargFU548
+
+https://www.youtube.com/watch?v=1lxmsPbyFio
+
+Store each JSON to out/<ytid>.json, and optionally render a simple HTML report (utterance table with color-coded probabilities). also - we dont have /analyze_url folder - is this necessary?
+ChatGPT said:
+
+Thought for 9s
+Totally—here’s a drop-in run_batch.py that will:
+
+Try to call an HTTP endpoint POST /analyze_url (no folder—an endpoint) at http://localhost:8000
+
+If the endpoint isn’t available, it falls back to running locally: downloads audio with yt-dlp and calls your UnifiedAnalyzer directly
+
+Saves results to out/<ytid>.json
+
+Builds a simple HTML report at out/report.html with color-coded probabilities and top utterances
+
+Place this file at src/model/run_batch.py.
+
+# src/model/run_batch.py
+"""
+Batch runner for YouTube videos.
+- Preferred: calls FastAPI endpoint POST /analyze_url with {"url": "<youtube url>"}.
+- Fallback: runs locally by downloading audio with yt-dlp and using UnifiedAnalyzer.
+
+Outputs:
+- out/<ytid>.json for each video
+- out/report.html with a simple color-coded summary
+
+Usage:
+  python -m src.model.run_batch \
+    --api http://localhost:8000 \
+    --urls https://www.youtube.com/watch?v=ZMhyG27O480 \
+           https://www.youtube.com/watch?v=xCnRJvD6kIw \
+           https://www.youtube.com/watch?v=v8SargFU548 \
+           https://www.youtube.com/watch?v=1lxmsPbyFio
+
+You can omit --api; the script will auto-fallback to local mode.
+Requires: yt-dlp installed and available on PATH for local mode.
+"""
+
+import argparse
+import json
+import os
+import re
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+from typing import Dict, Any, List, Optional
+
+# Optional: requests only if API is provided
+try:
+    import requests  # type: ignore
+except Exception:
+    requests = None  # gracefully handle if not installed
+
+# If we run locally, import the analyzer
+try:
+    # Relative import assumes this file is in src/model/
+    from .analyzer import UnifiedAnalyzer  # type: ignore
+except Exception:
+    UnifiedAnalyzer = None  # will only be used when needed
+
+
+DEFAULT_URLS = [
+    "https://www.youtube.com/watch?v=ZMhyG27O480",
+    "https://www.youtube.com/watch?v=xCnRJvD6kIw",
+    "https://www.youtube.com/watch?v=v8SargFU548",
+    "https://www.youtube.com/watch?v=1lxmsPbyFio",
+]
+
+
+def extract_ytid(url: str) -> str:
+    m = re.search(r"(?:v=|be/)([A-Za-z0-9_-]{6,})", url)
+    return m.group(1) if m else re.sub(r"\W+", "_", url)[:16]
+
+
+def call_api(api_base: str, url: str) -> Optional[Dict[str, Any]]:
+    if not api_base or not requests:
+        return None
+    endpoint = api_base.rstrip("/") + "/analyze_url"
+    try:
+        r = requests.post(endpoint, json={"url": url}, timeout=600)
+        if r.status_code == 200:
+            return r.json()
+        else:
+            print(f"[API] {url} -> HTTP {r.status_code}: {r.text[:200]}", file=sys.stderr)
+            return None
+    except Exception as e:
+        print(f"[API] failed ({e}); falling back to local.", file=sys.stderr)
+        return None
+
+
+def run_local(url: str) -> Dict[str, Any]:
+    if UnifiedAnalyzer is None:
+        raise RuntimeError("UnifiedAnalyzer import failed; cannot run local fallback.")
+    # Download bestaudio as wav
+    with tempfile.TemporaryDirectory() as tmpd:
+        templ = str(Path(tmpd) / "%(id)s.%(ext)s")
+        cmd = [
+            "yt-dlp",
+            "-x",
+            "--audio-format",
+            "wav",
+            "--audio-quality",
+            "0",
+            "-o",
+            templ,
+            url,
+        ]
+        subprocess.run(cmd, check=True)
+        wavs = list(Path(tmpd).glob("*.wav"))
+        if not wavs:
+            raise RuntimeError("yt-dlp did not produce a WAV file.")
+        analyzer = UnifiedAnalyzer(
+            whisper_model_size="medium",
+            text_model_path="models/hatexplain-roberta-mini",
+        )
+        return analyzer.analyze(str(wavs[0]))
+
+
+def save_json(obj: Dict[str, Any], out_dir: Path, ytid: str) -> Path:
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_path = out_dir / f"{ytid}.json"
+    with out_path.open("w", encoding="utf-8") as f:
+        json.dump(obj, f, ensure_ascii=False, indent=2)
+    return out_path
+
+
+def _cell_color(p: float) -> str:
+    """
+    Turn prob into a background color (green for low, red for high).
+    Uses hue: 120 (green) -> 0 (red).
+    """
+    p = max(0.0, min(1.0, p))
+    hue = 120 * (1.0 - p)  # 0=red, 120=green
+    return f"background: hsl({hue:.0f}, 70%, 80%);"
+
+
+def write_report(results: Dict[str, Dict[str, Any]], out_dir: Path) -> Path:
+    html = [
+        "<!doctype html><html><head><meta charset='utf-8'>",
+        "<title>Extremism Batch Report</title>",
+        "<style>body{font-family:system-ui,Arial,sans-serif;padding:20px;} "
+        "table{border-collapse:collapse;margin:16px 0;width:100%;} "
+        "th,td{border:1px solid #ddd;padding:8px;text-align:left;} "
+        "th{background:#f7f7f7;} .pill{display:inline-block;padding:2px 8px;border-radius:12px;font-weight:600;} "
+        ".ext{background:#ffebee;color:#b71c1c;} .pot{background:#fff8e1;color:#ef6c00;} .non{background:#e8f5e9;color:#1b5e20;}"
+        "</style></head><body>",
+        "<h1>Extremism Batch Report</h1>",
+    ]
+
+    def pill(label: str) -> str:
+        cls = "non"
+        if label == "extremist":
+            cls = "ext"
+        elif label == "potentially_extremist":
+            cls = "pot"
+        return f"<span class='pill {cls}'>{label}</span>"
+
+    for ytid, data in results.items():
+        final = data.get("final", {})
+        label = final.get("label", "unknown")
+        conf = final.get("confidence", 0.0)
+        html += [
+            f"<h2>{ytid} &nbsp; {pill(label)} &nbsp; <small>confidence: {conf:.2f}</small></h2>",
+            "<table>",
+            "<tr><th>#</th><th>Start–End</th><th>Text</th>"
+            "<th>p(extremist)</th><th>p(potential)</th><th>p(non)</th></tr>",
+        ]
+
+        # Sort utterances by p(extremist) desc; show top 12 for brevity
+        utts = data.get("utterances", [])
+        def pext(u): return (u.get("probs") or [0,0,0])[0]
+        utts_sorted = sorted(utts, key=pext, reverse=True)[:12]
+
+        for i, u in enumerate(utts_sorted, 1):
+            p = u.get("probs", [0.0, 0.0, 0.0])
+            start = u.get("start", 0.0)
+            end = u.get("end", 0.0)
+            text = (u.get("text") or "").replace("<", "&lt;").replace(">", "&gt;")
+            html += [
+                "<tr>",
+                f"<td>{i}</td>",
+                f"<td>{start:.1f}s–{end:.1f}s</td>",
+                f"<td>{text}</td>",
+                f"<td style='{_cell_color(p[0])}'>{p[0]:.2f}</td>",
+                f"<td style='{_cell_color(p[1])}'>{p[1]:.2f}</td>",
+                f"<td style='{_cell_color(p[2])}'>{p[2]:.2f}</td>",
+                "</tr>",
+            ]
+        html.append("</table>")
+
+    html.append("</body></html>")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    path = out_dir / "report.html"
+    path.write_text("\n".join(html), encoding="utf-8")
+    return path
+
+
+def main():
+    p = argparse.ArgumentParser()
+    p.add_argument("--api", type=str, default="http://localhost:8000",
+                   help="Base URL of your FastAPI server (where /analyze_url lives). "
+                        "If unreachable or returns error, the script falls back to local mode.")
+    p.add_argument("--urls", nargs="*", default=DEFAULT_URLS, help="YouTube URLs")
+    p.add_argument("--out", type=str, default="out", help="Output directory for JSON and report")
+    args = p.parse_args()
+
+    out_dir = Path(args.out)
+    results: Dict[str, Dict[str, Any]] = {}
+
+    for url in args.urls:
+        ytid = extract_ytid(url)
+        print(f"=== Processing {url} [{ytid}] ===")
+        data = call_api(args.api, url)
+        if data is None:
+            print("-> Using local fallback…")
+            data = run_local(url)
+        save_json(data, out_dir, ytid)
+        results[ytid] = data
+        print(f"Saved: {out_dir / (ytid + '.json')}")
+
+    report_path = write_report(results, out_dir)
+    print(f"\nReport: {report_path.resolve()}")
+
+
+if __name__ == "__main__":
+    main()
+Notes
+“/analyze_url” is not a folder. It’s an HTTP endpoint you expose in your FastAPI app (e.g., in src/api/main.py). If you haven’t added it yet, drop in something like:
+
+# in src/api/main.py
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+from src.model.analyzer import UnifiedAnalyzer
+import tempfile, subprocess, os
+from pathlib import Path
+from fastapi.responses import JSONResponse
+
+app = FastAPI()
+analyzer = UnifiedAnalyzer(
+    whisper_model_size="medium",
+    text_model_path="models/hatexplain-roberta-mini"
+)
+
+class UrlPayload(BaseModel):
+    url: str
+
+@app.post("/analyze_url")
+def analyze_url(payload: UrlPayload):
+    with tempfile.TemporaryDirectory() as tmpd:
+        templ = os.path.join(tmpd, "%(id)s.%(ext)s")
+        cmd = ["yt-dlp", "-x", "--audio-format", "wav", "--audio-quality", "0", "-o", templ, payload.url]
+        try:
+            subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"yt-dlp failed: {e}")
+        wavs = list(Path(tmpd).glob("*.wav"))
+        if not wavs:
+            raise HTTPException(status_code=400, detail="No WAV produced")
+        out = analyzer.analyze(str(wavs[0]))
+    return JSONResponse(content=out)
+How to run
+Start your API (if you want the HTTP path):
+
+uvicorn src.api.main:app --reload --port 8000
+Run the batch script (it will use the API if up, otherwise local mode):
+
+python -m src.model.run_batch
+This will create:
+
+out/ZMhyG27O480.json (etc.)
+
+out/report.html — open it in a browser for a quick visual summary.
+
+If you prefer only local mode (no API), you can still run the same command; it will detect the missing endpoint and switch to local automatically.

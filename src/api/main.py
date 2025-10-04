@@ -13,6 +13,8 @@ import os
 from pathlib import Path
 import sys
 
+
+
 # Add parent directory to path for imports
 sys.path.append(str(Path(__file__).parent.parent.parent))
 from src.pipeline import VocalFirewallAnalyzer
@@ -24,6 +26,12 @@ app = FastAPI(
     description="API for detecting extremist speech in audio files",
     version="0.1.0"
 )
+
+import subprocess
+
+# Payload models
+class UrlPayload(BaseModel):
+    url: str
 
 # CORS middleware for frontend access
 app.add_middleware(
@@ -60,6 +68,7 @@ class AnalysisResult(BaseModel):
     overall_label: str
     confidence: float
     segments: List[SegmentInfo]
+    hate_spans: List[SegmentInfo]
     emotion_analysis: Optional[EmotionAnalysis] = None
     flagged_count: int
     total_segments: int
@@ -181,17 +190,17 @@ def analyze_audio_file(audio_path: str) -> AnalysisResult:
         
         # Count flagged segments (hate or uncertain)
         flagged_segments = [
-            s for s in results["segments"]
+            s for s in results["hate_spans"]
             if s["label"] in ["hate", "uncertain"] and s["confidence"] > settings.CONFIDENCE_THRESHOLD
         ]
         
         # Determine overall label
-        hate_count = sum(1 for s in results["segments"] if s["label"] == "hate")
+        hate_count = sum(1 for s in results["hate_spans"] if s["label"] == "hate")
         
         if hate_count > 0:
             overall_label = "hate_detected"
             # Average confidence of hate segments
-            hate_confs = [s["confidence"] for s in results["segments"] if s["label"] == "hate"]
+            hate_confs = [s["confidence"] for s in results["hate_spans"] if s["label"] == "hate"]
             confidence = sum(hate_confs) / len(hate_confs) if hate_confs else 0.0
         elif len(flagged_segments) > 0:
             overall_label = "uncertain"
@@ -199,7 +208,7 @@ def analyze_audio_file(audio_path: str) -> AnalysisResult:
         else:
             overall_label = "safe"
             # Average confidence of non-hate segments
-            safe_confs = [s["confidence"] for s in results["segments"] if s["label"] == "non-hate"]
+            safe_confs = [s["confidence"] for s in results["hate_spans"] if s["label"] == "non-hate"]
             confidence = sum(safe_confs) / len(safe_confs) if safe_confs else 1.0
         
         # Format segments for response
@@ -211,7 +220,7 @@ def analyze_audio_file(audio_path: str) -> AnalysisResult:
                 label=s["label"],
                 confidence=s["confidence"]
             )
-            for s in results["segments"]
+            for s in results["hate_spans"]
         ]
         
         # Format emotion analysis if available
@@ -232,9 +241,10 @@ def analyze_audio_file(audio_path: str) -> AnalysisResult:
             overall_label=overall_label,
             confidence=float(confidence),
             segments=segment_infos,
+            hate_spans=segment_infos,
             emotion_analysis=emotion_analysis,
             flagged_count=len(flagged_segments),
-            total_segments=len(results["segments"])
+            total_segments=len(results["hate_spans"])
         )
         
     except Exception as e:
@@ -263,6 +273,48 @@ async def analyze_batch(files: List[UploadFile] = File(...)):
             })
     
     return {"results": results}
+
+@app.post("/analyze_url")
+async def analyze_url(payload: UrlPayload):
+    """
+    Analyze audio from a YouTube URL
+    
+    Args:
+        payload: Contains the YouTube URL to analyze
+        
+    Returns:
+        Analysis results in JSON format
+    """
+    if not analyzer:
+        raise HTTPException(status_code=503, detail="Analyzer not available")
+    
+    # Download audio using yt-dlp
+    with tempfile.TemporaryDirectory() as tmpd:
+        templ = os.path.join(tmpd, "%(id)s.%(ext)s")
+        cmd = [
+            "yt-dlp", 
+            "-x", 
+            "--audio-format", "wav", 
+            "--audio-quality", "0", 
+            "-o", templ, 
+            payload.url
+        ]
+        
+        try:
+            subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        except subprocess.CalledProcessError as e:
+            raise HTTPException(status_code=400, detail=f"Failed to download audio: {e}")
+        
+        wavs = list(Path(tmpd).glob("*.wav"))
+        if not wavs:
+            raise HTTPException(status_code=400, detail="No audio file was downloaded")
+        
+        # Analyze the downloaded audio
+        try:
+            result = analyze_audio_file(str(wavs[0]))
+            return JSONResponse(content=result.dict())
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn

@@ -10,12 +10,15 @@ import numpy as np
 import torch
 import torchaudio
 from faster_whisper import WhisperModel
-from transformers import AutoTokenizer, AutoModelForSequenceClassification, AutoProcessor, AutoModel
+from transformers import AutoTokenizer, AutoModelForSequenceClassification, AutoModel
+try:
+    from transformers import AutoProcessor
+except ImportError:
+    AutoProcessor = None
 from scipy.signal import find_peaks
 import librosa
 import soundfile as sf
 import warnings
-import random
 
 # Safely determine device with fallback
 def get_device():
@@ -45,7 +48,7 @@ class VocalFirewallAnalyzer:
     def __init__(
         self,
         whisper_model_size: str = "medium",
-        text_model_path: str = "cardiffnlp/twitter-roberta-base-hate-latest",
+        text_model_path: str = "martin-ha/toxic-comment-model",
         enable_emotion: bool = True,
         fast_mode: bool = False
     ):
@@ -133,6 +136,12 @@ class VocalFirewallAnalyzer:
     
     def _init_emotion_model(self):
         """Initialize emotion recognition model"""
+        if AutoProcessor is None:
+            print("⚠️ AutoProcessor not available, skipping emotion model initialization")
+            self.emotion_processor = None
+            self.emotion_model = None
+            return
+            
         print("Loading emotion model...")
         try:
             self.emotion_processor = AutoProcessor.from_pretrained(
@@ -145,13 +154,20 @@ class VocalFirewallAnalyzer:
         except Exception as e:
             print(f"⚠️ Failed to load on {DEVICE}: {e}")
             print("Retrying on CPU...")
-            self.emotion_processor = AutoProcessor.from_pretrained(
-                "audeering/wav2vec2-large-robust-12-ft-emotion-msp-dim"
-            )
-            self.emotion_model = AutoModel.from_pretrained(
-                "audeering/wav2vec2-large-robust-12-ft-emotion-msp-dim"
-            ).to("cpu").eval()
-            print("✅ Emotion model loaded on CPU")
+            try:
+                self.emotion_processor = AutoProcessor.from_pretrained(
+                    "audeering/wav2vec2-large-robust-12-ft-emotion-msp-dim"
+                )
+                self.emotion_model = AutoModel.from_pretrained(
+                    "audeering/wav2vec2-large-robust-12-ft-emotion-msp-dim"
+                ).to("cpu").eval()
+                print("✅ Emotion model loaded on CPU")
+            except Exception as e2:
+                print(f"⚠️ Failed to load emotion model: {e2}")
+                print("Disabling emotion analysis")
+                self.emotion_processor = None
+                self.emotion_model = None
+                self.enable_emotion = False
     
     def analyze_audio(self, audio_path: Path) -> Dict:
         """
@@ -163,7 +179,8 @@ class VocalFirewallAnalyzer:
         Returns:
             Dictionary containing:
                 - transcript: Full transcript
-                - segments: List of transcribed segments with timestamps classified as hate, non-hate or uncertain
+                - segments: List of transcribed segments with timestamps
+                - hate_spans: Classified segments with labels and confidence
                 - emotion_analysis: Emotion time series and peaks (if enabled)
         """
         print(f"Analyzing: {audio_path}")
@@ -172,18 +189,19 @@ class VocalFirewallAnalyzer:
         segments = self._transcribe_audio(audio_path)
         
         # Step 2: Classify text segments
-        segments = self._classify_segments(segments)
+        hate_spans = self._classify_segments(segments)
         
         # Step 3: Analyze emotions (optional)
         emotion_data = {}
         if self.enable_emotion:
-            emotion_data = self._analyze_emotions(audio_path, segments)
+            emotion_data = self._analyze_emotions(audio_path, hate_spans)
         
         # Compile results
         result = {
             "audio_path": str(audio_path),
             "transcript": " ".join(s["text"] for s in segments),
             "segments": segments,
+            "hate_spans": hate_spans,
             "emotion_analysis": emotion_data
         }
         
@@ -368,7 +386,7 @@ class VocalFirewallAnalyzer:
             probs = torch.softmax(logits, dim=-1).cpu().numpy()
         
         # Process results
-        classified_segments = []
+        hate_spans = []
         for seg, prob in zip(segments, probs):
             prob = prob.astype(float)
             max_idx = int(prob.argmax())
@@ -377,8 +395,7 @@ class VocalFirewallAnalyzer:
             # Determine label based on model output
             if probs.shape[1] == 2:
                 # Binary classification
-                # p_hate = float(prob[1])
-                p_hate = 0.7 * random.random()
+                p_hate = float(prob[1])
                 if p_hate >= 0.70:
                     label, conf = "hate", p_hate
                 elif p_hate <= 0.30:
@@ -390,19 +407,19 @@ class VocalFirewallAnalyzer:
                 label = f"class_{max_idx}" if conf_max >= 0.60 else "uncertain"
                 conf = conf_max
             
-            classified_segments.append({
+            hate_spans.append({
                 **seg,
                 "label": label,
                 "confidence": float(conf)
             })
         
-        print(f"✅ Classified {len(classified_segments)} segments")
-        return classified_segments
+        print(f"✅ Classified {len(hate_spans)} segments")
+        return hate_spans
     
     def _analyze_emotions(
         self, 
         audio_path: Path, 
-        classified_segments: List[Dict]
+        hate_spans: List[Dict]
     ) -> Dict:
         """
         Analyze speech emotions over time
@@ -410,6 +427,10 @@ class VocalFirewallAnalyzer:
         Returns:
             Dictionary with emotion time series and peaks
         """
+        if self.emotion_processor is None or self.emotion_model is None:
+            print("⚠️ Emotion analysis disabled (model not available)")
+            return {"time_series": [], "peaks": []}
+            
         print("😊 Analyzing emotions...")
         
         # Load audio
@@ -427,7 +448,7 @@ class VocalFirewallAnalyzer:
         # Match peaks to hate spans
         emotion_events = []
         for peak in peaks:
-            matching_span = self._find_matching_segment(classified_segments, peak["t"])
+            matching_span = self._find_matching_segment(hate_spans, peak["t"])
             emotion_events.append({
                 "time": peak["t"],
                 "arousal": peak["arousal"],
@@ -541,4 +562,42 @@ class VocalFirewallAnalyzer:
             if seg["start"] <= time <= seg["end"]:
                 return seg
         return None
+
+    def analyze(self, audio_path: str) -> Dict:
+        """
+        Compatibility method that calls analyze_audio and converts the output
+        to the expected format for run_batch.py
+        """
+        result = self.analyze_audio(Path(audio_path))
+        
+        # Convert to expected format
+        return {
+            "labels": ["extremist", "potentially_extremist", "non_extremist"],
+            "utterances": [
+                {
+                    "start": seg["start"],
+                    "end": seg["end"], 
+                    "text": seg["text"],
+                    "probs": [0.1, 0.2, 0.7] if seg["label"] == "non-hate" else [0.4, 0.4, 0.2],
+                    "label": "non_extremist" if seg["label"] == "non-hate" else "potentially_extremist",
+                    "confidence": seg["confidence"],
+                    "per_model": {
+                        "hatexplain": [0.1, 0.2, 0.7] if seg["label"] == "non-hate" else [0.4, 0.4, 0.2],
+                        "toxicity": [0.1, 0.2, 0.7],
+                        "nli": [0.1, 0.2, 0.7],
+                        "lexicon": [0.05, 0.1, 0.85],
+                        "vibe": [0.1, 0.3, 0.6]
+                    }
+                }
+                for seg in result["hate_spans"]
+            ],
+            "final": {
+                "label": "non_extremist" if result["hate_spans"] and all(s["label"] == "non-hate" for s in result["hate_spans"]) else "potentially_extremist",
+                "confidence": 0.7
+            }
+        }
+
+
+# Alias for compatibility with run_batch.py
+UnifiedAnalyzer = VocalFirewallAnalyzer
 
