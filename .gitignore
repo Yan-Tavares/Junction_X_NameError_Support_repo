@@ -1,8 +1,10 @@
 # custom
 project.md
 SETUP.md
-/models
-/out
+models/
+out/
+data/
+temp/
 
 # Python
 __pycache__/
