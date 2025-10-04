@@ -5,6 +5,7 @@ models/
 out/
 data/
 temp/
+external/
 
 # Python
 __pycache__/
