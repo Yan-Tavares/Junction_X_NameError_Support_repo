@@ -1,1 +1,7 @@
+.venv
+data
+*/__pycache
+*\__pycache__
+
 /models
+\models
