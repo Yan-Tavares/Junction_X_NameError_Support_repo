@@ -5,85 +5,85 @@
     {
       "start_time": 0.0,
       "end_time": 30.0,
-      "text": "YET AT LUSE ME VERY SHE I MOVED IN HER ECTION YOU KNOW SHE WAS DOWN UPON BEACH I MOVED ON HER AND I FAILED AO MINUTE  A LITTLE AND I DID TRY IT SHE WAS MARY SES NEPERS THERE EN OT DAN' SEN YO AN KNOW THIS WAS GERGES AND I MOVED ON HER VERY HEAVILY EFFECT I TOOK HER OUT FURNITURE SHOPPING SHE WANTED TO GET SOME FURNITURES  SAY YOU WOITD ET SOME NEX FOR AT TOOK ERFORGEN I WOUNEDED HER LIKE A I COULDN'T GET THERE AND SHE WAS MARRIED AAL ON A SUDDEN I SEE YOU SHE'S NOW GET THE BIG FONY TO NOW THAT SHES ONELY CHANGED HER WE",
-      "label": "uncertain",
-      "confidence": 0.3928,
+      "text": "I moved on her and I failed. I did try and she was married. No dancing. No, this was your. And I moved on her very heavily. In fact, I took her out furniture shopping. She wanted to get some furniture. I said, I'll show you where that's some nice furniture. I took her out furniture. I moved on her like a. I couldn't get there and she was married. And all of a sudden I see her. She's now got the big phony. She's totally changed her.",
+      "label": "normal",
+      "confidence": 0.5991,
       "scores": {
-        "normal": 0.3928,
-        "offensive": 0.3383,
-        "hate": 0.2689
+        "normal": 0.5991,
+        "offensive": 0.1713,
+        "hate": 0.2296
       }
     },
     {
       "start_time": 30.0,
       "end_time": 60.0,
-      "text": "SHES YOU GIRLS HOTTISH IN THE CURPLE O YESO YES OL THIS JO  BUFFEMO MY MAN A WAWHER YOU GOT LOOKING O YOGAA ET AT YORSELF THAT IS A VERY FOMINIT TOIN YOU ARE MI O GIGER E THUS A AVE YOU TORE HAW YOUR SUFFERS JALOIS VERY FIGAGIN ABOUT  AT YOUAR I WOL CONOGODNAMAY MIT'S A DIFFER",
-      "label": "uncertain",
-      "confidence": 0.3878,
+      "text": "She's your girl's hottest.",
+      "label": "normal",
+      "confidence": 0.6455,
       "scores": {
-        "normal": 0.3878,
-        "offensive": 0.2786,
-        "hate": 0.3336
+        "normal": 0.6455,
+        "offensive": 0.1462,
+        "hate": 0.2083
       }
     },
     {
       "start_time": 60.0,
       "end_time": 90.0,
-      "text": "OL THER O E NO NOIT STD SERVANTS YATIUR WITH A GOLD  YOU SOBE OR SECUR SISTE CUSINGER BONT WHATAMATICALLY ATJRACTED DEMULTO I JUST O ITING THEM SUC AMAGEYO  I KNOW YOU YOU IT AN WHEN YOU RE STARVE THEY LET YOU DO IT YOU MAN DO ANYTHING BUTH EVERY ONE GRAN BUTHER I COULD DO ANYTHING YOU LIKE DELECANCYS TE LEGT NOT MUTH GOOD GO OT YHORTY",
-      "label": "uncertain",
-      "confidence": 0.3844,
+      "text": "Yeah, that's it with a gold I don't use some take to access in case they're kissing you know I'm automatically attracted to beautiful I just don't just like a magnet I don't even wait and when you're starting they like to do it you can do anything whatever you want grab them by the do anything No, it looks good Come on Shorty",
+      "label": "normal",
+      "confidence": 0.6901,
       "scores": {
-        "normal": 0.3844,
-        "offensive": 0.2961,
-        "hate": 0.3195
+        "normal": 0.6901,
+        "offensive": 0.1226,
+        "hate": 0.1873
       }
     },
     {
       "start_time": 90.0,
       "end_time": 120.0,
-      "text": "ORNENTIAL EXIONGET WITH IGAT TO AS GOOD OF YOU KNOW FALL OUT OF THE BUT LI FOR JEOL FOR DIN ON  O DAMPLA PLD AN ELL HOW WERE YOOU I AI CAM HERE TURN TO EITSE AM PERFECT YOU NOW BILLY BUSSI LET I SEE YOU I DO AT ARIENITY AGAL",
-      "label": "uncertain",
-      "confidence": 0.4133,
+      "text": "We're a natural action. Get out of the way though. That's a good mix. Good. So it's good if you don't fall out of the bus. Like for a jar of food, remember? Down below. Pull the amp. Hello. How are you? Hi. Hi. How are you? Good to meet you. Terrific. Terrific. You know Billy Bush. How are you? Nice to see you. How are you doing here? I'm doing very well.",
+      "label": "normal",
+      "confidence": 0.6532,
       "scores": {
-        "normal": 0.4133,
-        "offensive": 0.28,
-        "hate": 0.3067
+        "normal": 0.6532,
+        "offensive": 0.1421,
+        "hate": 0.2047
       }
     },
     {
       "start_time": 120.0,
       "end_time": 150.0,
-      "text": "ELL THANK YOU ARE YOU READY ME SOBSTARK WE'RE READY LET'S GO MAKE ME A SOAB STON OT A LITTLE HOGBY DOTLY TUS GOT UP U WEN I CAN GO  AXCELLENTLY MALANI A LOD IS A WOAS YO IS GOT UP  ASHWIS O MA VERY EIGO EXCELLENTWELL YOU'LL HAV A NICE COAST ON YOUR GOOD YETH THAT'S THE  YOU ANDOI DONT ME SHUST WO IS A BEAUTIFUL WOMAN WO UL NOT E IS TH CAADALITE AAS O I'M SORRY COME HERE A LITTLE LILEGA IN IDY I  LI I IN I FEEL NOW I SHAN NET SNORE TO WALK NEXT TO THE GARLY AS",
-      "label": "uncertain",
-      "confidence": 0.3746,
+      "text": "Thank you. Are you ready to be a soap star? We're ready. Let's go make me a soap star. I'm a little hug for the Donley because got off the bus. Okay, absolutely. I'm sorry come here. Yeah, I look a little guy in how you feel now. I should actually hard to walk next to a guy like this.",
+      "label": "normal",
+      "confidence": 0.5858,
       "scores": {
-        "normal": 0.3746,
-        "offensive": 0.2975,
-        "hate": 0.3279
+        "normal": 0.5858,
+        "offensive": 0.19,
+        "hate": 0.2242
       }
     },
     {
       "start_time": 150.0,
       "end_time": 180.0,
-      "text": "DI YOU GET THE MILK THERE WE GOD HAD'S GO MUCH MARRY IT FOR HADS BATTER IF YOU HAD TO CHOOSE HONESTY BETWEEN ONE OF US MEAR THE DON GO O NO THAT SELF GISTATIONER TISERS IF YOU HD YOU HAD TO TAKE ONE OF US AS IT DID  THI IF ON NOW I REALLY YET NOTHING BUT REMED U WHICH WY MAKE RAT SAY WE GO REPERRED AI THE DAM YOURE YOS OMAN LEAVE HERE COQET WIT MY GIR COQUET YOU GEN O YOUR  FINISH YOU MAY MARRY DO O IO YO  GONG TO GO TOASIP ALL YOU UNDER HESN",
-      "label": "uncertain",
-      "confidence": 0.3818,
+      "text": "Yeah, you're getting the middle. Hey, good. That's better. This is much better. This is add spatter. Now if you had to choose honestly between one of us me or the Donald, I don't know that's stuff competition. You had to take one of us as a day. I'll take both. Which way make it right. Here we go. Here he goes. I'm gonna leave you here. Okay. Okay. You're gonna. You're finished. You might. Yeah. Oh, I'm gonna go do a show. Oh, you want to reset.",
+      "label": "normal",
+      "confidence": 0.5548,
       "scores": {
-        "normal": 0.3818,
-        "offensive": 0.2792,
-        "hate": 0.339
+        "normal": 0.5548,
+        "offensive": 0.197,
+        "hate": 0.2482
       }
     },
     {
       "start_time": 180.0,
       "end_time": 190.97,
-      "text": "EME",
-      "label": "uncertain",
-      "confidence": 0.4065,
+      "text": "Okay.",
+      "label": "normal",
+      "confidence": 0.6895,
       "scores": {
-        "normal": 0.4065,
-        "offensive": 0.2803,
-        "hate": 0.3132
+        "normal": 0.6895,
+        "offensive": 0.1339,
+        "hate": 0.1766
       }
     }
   ],
@@ -91,8 +91,8 @@
     "total_segments": 7,
     "hate_segments": 0,
     "offensive_segments": 0,
-    "normal_segments": 0,
-    "uncertain_segments": 7,
+    "normal_segments": 7,
+    "uncertain_segments": 0,
     "hate_percentage": 0.0
   }
 }

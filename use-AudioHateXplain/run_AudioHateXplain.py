@@ -99,8 +99,18 @@ class AudioHateXplainPipeline:
         
         # Fallback to a pretrained ASR model (Whisper is good for transcription with timestamps)
         print("Using pretrained Whisper model for ASR with timestamps...")
-        processor = AutoProcessor.from_pretrained("openai/whisper-tiny.en")
-        model = AutoModelForSpeechSeq2Seq.from_pretrained("openai/whisper-tiny.en")
+        
+        # Choose model size based on your needs:
+        # - tiny.en: 39M params, fastest, least accurate
+        # - base.en: 74M params, good balance (RECOMMENDED)
+        # - small.en: 244M params, better accuracy
+        # - medium.en: 769M params, best accuracy but slow
+        
+        model_size = "base.en"  # Change to "small.en" or "medium.en" for better quality
+        print(f"Loading Whisper {model_size}...")
+        
+        processor = AutoProcessor.from_pretrained(f"openai/whisper-{model_size}")
+        model = AutoModelForSpeechSeq2Seq.from_pretrained(f"openai/whisper-{model_size}")
         model = model.to(self.device)
         model.eval()
         
@@ -113,15 +123,18 @@ class AudioHateXplainPipeline:
             tokenizer = AutoTokenizer.from_pretrained(model_path)
             model = AutoModelForSequenceClassification.from_pretrained(model_path)
         else:
-            # Use a pretrained hate speech detection model
-            print("Using pretrained BERT-based hate speech classifier...")
-            model_name = "bert-base-uncased"  # Base model, can be fine-tuned
+            # Use a REAL hate speech detection model that's actually trained
+            print("Using pretrained hate speech classifier (actually trained!)...")
+            
+            # Option 1: Facebook's RoBERTa trained on hate speech
+            model_name = "facebook/roberta-hate-speech-dynabench-r4-target"
+            
+            # Option 2: Alternative hate speech model (uncomment to use)
+            # model_name = "Hate-speech-CNERG/dehatebert-mono-english"
+            
+            print(f"Loading: {model_name}")
             tokenizer = AutoTokenizer.from_pretrained(model_name)
-            model = AutoModelForSequenceClassification.from_pretrained(
-                model_name,
-                num_labels=3,  # normal, offensive, hate
-                output_attentions=True,
-            )
+            model = AutoModelForSequenceClassification.from_pretrained(model_name)
         
         model = model.to(self.device)
         model.eval()
@@ -235,12 +248,15 @@ class AudioHateXplainPipeline:
         predicted_class = torch.argmax(probs, dim=-1).item()
         confidence = probs[0, predicted_class].item()
         
-        # Map to labels (adjust based on your model's label mapping)
-        label_map = {
-            0: "normal",
-            1: "offensive", 
-            2: "hate"
-        }
+        # Map to labels - Facebook's RoBERTa model uses binary classification
+        # 0 = not hate, 1 = hate
+        # Adjust this if using a different model
+        if probs.shape[1] == 2:
+            # Binary classification (hate/not-hate)
+            label_map = {0: "normal", 1: "hate"}
+        else:
+            # Multi-class (normal/offensive/hate)
+            label_map = {0: "normal", 1: "offensive", 2: "hate"}
         
         # Determine label with uncertainty threshold
         if confidence < 0.5:
@@ -248,14 +264,26 @@ class AudioHateXplainPipeline:
         else:
             label = label_map.get(predicted_class, "uncertain")
         
-        return {
-            "label": label,
-            "confidence": round(confidence, 4),
-            "scores": {
+        # Build scores dictionary based on model output
+        scores = {}
+        if probs.shape[1] == 2:
+            # Binary classification
+            scores = {
+                "normal": round(probs[0, 0].item(), 4),
+                "hate": round(probs[0, 1].item(), 4),
+            }
+        else:
+            # Multi-class classification
+            scores = {
                 "normal": round(probs[0, 0].item(), 4),
                 "offensive": round(probs[0, 1].item(), 4) if probs.shape[1] > 1 else 0.0,
                 "hate": round(probs[0, 2].item(), 4) if probs.shape[1] > 2 else 0.0,
             }
+        
+        return {
+            "label": label,
+            "confidence": round(confidence, 4),
+            "scores": scores
         }
     
     def process_audio_file(
