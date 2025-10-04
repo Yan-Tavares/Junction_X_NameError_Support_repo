@@ -4,6 +4,7 @@ SETUP.md
 
 # Python
 __pycache__/
+*.pyc
 
 # Virtual environments
 venv/
