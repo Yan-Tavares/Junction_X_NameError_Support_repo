@@ -22,34 +22,29 @@ echo ""
 echo "🔄 Activating virtual environment..."
 source venv/bin/activate
 
-# Check if requirements are installed
-if ! python -c "import streamlit" 2>/dev/null; then
-    echo "📥 Installing dependencies (this may take a few minutes)..."
-    pip install --upgrade pip --quiet
-    pip install -r requirements.txt
-    if [ $? -ne 0 ]; then
-        echo "❌ Failed to install dependencies"
-        exit 1
-    fi
-    echo "✅ Dependencies installed"
-else
-    echo "✅ Dependencies already installed"
-fi
+echo "📥 Installing dependencies (this may take a few minutes)..."
+pip install --upgrade pip --quiet
+pip install -r requirements.txt
+echo "✅ Dependencies installed"
+
 
 # Create .env file if it doesn't exist
 if [ ! -f ".env" ]; then
     echo ""
     echo "⚙️  Creating .env file..."
     cat > .env << EOF
-# API Configuration
-API_HOST=0.0.0.0
-API_PORT=8000
-API_URL=http://localhost:8000
+WHISPER_MODEL_SIZE=small
+TEXT_MODEL_PATH=cardiffnlp/twitter-roberta-base-hate-latest
+ENABLE_EMOTION_ANALYSIS=true
 
-# Model Configuration
-WHISPER_MODEL_SIZE=medium
+# Performance
+FAST_MODE=false
 CONFIDENCE_THRESHOLD=0.5
-MAX_AUDIO_LENGTH_SECONDS=600
+
+# Audio Processing
+SAMPLE_RATE=16000
+PRE_EMPHASIS=0.97
+NOISE_REDUCTION=true
 EOF
     echo "✅ .env file created"
 fi

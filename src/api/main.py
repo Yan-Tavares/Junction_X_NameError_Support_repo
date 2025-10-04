@@ -60,7 +60,6 @@ class AnalysisResult(BaseModel):
     overall_label: str
     confidence: float
     segments: List[SegmentInfo]
-    hate_spans: List[SegmentInfo]
     emotion_analysis: Optional[EmotionAnalysis] = None
     flagged_count: int
     total_segments: int
@@ -182,17 +181,17 @@ def analyze_audio_file(audio_path: str) -> AnalysisResult:
         
         # Count flagged segments (hate or uncertain)
         flagged_segments = [
-            s for s in results["hate_spans"]
+            s for s in results["segments"]
             if s["label"] in ["hate", "uncertain"] and s["confidence"] > settings.CONFIDENCE_THRESHOLD
         ]
         
         # Determine overall label
-        hate_count = sum(1 for s in results["hate_spans"] if s["label"] == "hate")
+        hate_count = sum(1 for s in results["segments"] if s["label"] == "hate")
         
         if hate_count > 0:
             overall_label = "hate_detected"
             # Average confidence of hate segments
-            hate_confs = [s["confidence"] for s in results["hate_spans"] if s["label"] == "hate"]
+            hate_confs = [s["confidence"] for s in results["segments"] if s["label"] == "hate"]
             confidence = sum(hate_confs) / len(hate_confs) if hate_confs else 0.0
         elif len(flagged_segments) > 0:
             overall_label = "uncertain"
@@ -200,7 +199,7 @@ def analyze_audio_file(audio_path: str) -> AnalysisResult:
         else:
             overall_label = "safe"
             # Average confidence of non-hate segments
-            safe_confs = [s["confidence"] for s in results["hate_spans"] if s["label"] == "non-hate"]
+            safe_confs = [s["confidence"] for s in results["segments"] if s["label"] == "non-hate"]
             confidence = sum(safe_confs) / len(safe_confs) if safe_confs else 1.0
         
         # Format segments for response
@@ -212,7 +211,7 @@ def analyze_audio_file(audio_path: str) -> AnalysisResult:
                 label=s["label"],
                 confidence=s["confidence"]
             )
-            for s in results["hate_spans"]
+            for s in results["segments"]
         ]
         
         # Format emotion analysis if available
@@ -233,10 +232,9 @@ def analyze_audio_file(audio_path: str) -> AnalysisResult:
             overall_label=overall_label,
             confidence=float(confidence),
             segments=segment_infos,
-            hate_spans=segment_infos,
             emotion_analysis=emotion_analysis,
             flagged_count=len(flagged_segments),
-            total_segments=len(results["hate_spans"])
+            total_segments=len(results["segments"])
         )
         
     except Exception as e:
