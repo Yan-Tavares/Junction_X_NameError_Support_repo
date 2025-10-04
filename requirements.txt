@@ -1,0 +1,30 @@
+# Web Framework
+fastapi
+uvicorn[standard]
+python-multipart
+streamlit
+
+# ML & Audio Processing
+torch
+torchaudio
+transformers==4.41.0
+accelerate>=0.30.0
+faster-whisper==1.2.0
+librosa
+soundfile
+
+# Data & Analysis
+numpy
+scipy
+pandas
+scikit-learn
+datasets>=2.14.0,<2.15.0
+evaluate
+
+# Utilities
+plotly
+requests
+yt-dlp
+xgboost
+pydantic
+pydantic-settings

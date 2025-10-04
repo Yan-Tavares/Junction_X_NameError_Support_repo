@@ -1,4 +1,29 @@
-/models
+# custom
+project.md
+SETUP.md
+models/
+out/
+data/
+temp/
+external/
+/app.py
+
+# Python
+__pycache__/
+*.pyc
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# IDE
+.vscode/
+
+# Environment variables
+.env
+
 emotion_env/
 ravdess_raw/
 emotion_model/
