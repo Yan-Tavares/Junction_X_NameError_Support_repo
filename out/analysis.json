@@ -1,0 +1,35 @@
+{
+  "audio_path": "out/7QkJ6IYikWo.wav",
+  "hate_spans": [
+    {
+      "start": 0.0,
+      "end": 2.92,
+      "text": "MUM! MUM! MUM! MUM! MUM! MUM! MUM! MUM! MUM! MUM! MUM!",
+      "label": "hate",
+      "confidence": 0.6250442862510681
+    },
+    {
+      "start": 11.95,
+      "end": 12.45,
+      "text": "SEEEEE-",
+      "label": "hate",
+      "confidence": 0.5168155431747437
+    },
+    {
+      "start": 12.45,
+      "end": 49.2,
+      "text": "You're mastering, you will-",
+      "label": "hate",
+      "confidence": 0.9995131492614746
+    },
+    {
+      "start": 49.2,
+      "end": 49.7,
+      "text": "BOOM!",
+      "label": "hate",
+      "confidence": 0.999091386795044
+    }
+  ],
+  "emotion_times": [],
+  "emotion_peaks": []
+}
