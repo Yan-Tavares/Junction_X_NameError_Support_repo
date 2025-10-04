@@ -257,6 +257,7 @@ if st.session_state.analysis_results:
     # Hate spans/segments
     segments = results.get("segments", results.get("segments", []))
     if segments:
+        st.write("")
         st.subheader("🔍 Analyzed Segments")
         
         # Filter for display based on threshold
@@ -385,6 +386,7 @@ else:
     st.info("👈 Upload and analyze an audio file to see results")
 
 # Footer
+st.write("")
 st.markdown("---")
 st.markdown("""
 <div style='text-align: center; color: #666;'>
