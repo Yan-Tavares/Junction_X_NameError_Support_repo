@@ -2,11 +2,11 @@
   "audio_path": "out/7QkJ6IYikWo.wav",
   "hate_spans": [
     {
-      "start": 48.3,
-      "end": 49.7,
-      "text": "Hap",
+      "start": 0.17,
+      "end": 49.42,
+      "text": "Op op oh um Augusto get master and you will",
       "label": "uncertain",
-      "confidence": 0.3414875268936157
+      "confidence": 0.3437854051589966
     }
   ],
   "emotion_times": [],

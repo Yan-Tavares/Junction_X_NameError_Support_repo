@@ -24,27 +24,132 @@ def download_audio(url: str, out_dir: Path) -> Path:
 
 
 def whisper_transcribe(path: Path, model_size="medium"):
+    import librosa
+    import numpy as np
+    import soundfile as sf
+    from scipy import signal
+    
+    # Load and preprocess audio
+    audio, sr = librosa.load(str(path), sr=16000)
+    
+    # Apply pre-emphasis filter
+    pre_emphasis = 0.97
+    emphasized_audio = np.append(audio[0], audio[1:] - pre_emphasis * audio[:-1])
+    
+    # Normalize audio
+    emphasized_audio = librosa.util.normalize(emphasized_audio)
+    
+    # Apply noise reduction using spectral gating
+    S = librosa.stft(emphasized_audio)
+    mag = np.abs(S)
+    
+    # Estimate noise floor
+    noise_floor = np.mean(np.sort(mag, axis=1)[:, :int(mag.shape[1]*0.1)], axis=1)
+    noise_floor = noise_floor[:, np.newaxis]
+    
+    # Apply soft thresholding
+    gain = (mag - noise_floor) / mag
+    gain = np.maximum(0, gain)
+    
+    # Apply gain reduction
+    S_clean = S * gain
+    
+    # Inverse STFT
+    audio_clean = librosa.istft(S_clean)
+    
+    # Save preprocessed audio
+    temp_path = path.parent / (path.stem + "_processed.wav")
+    sf.write(str(temp_path), audio_clean, sr)
+    
     model = WhisperModel(
         model_size,
         device=("cuda" if torch.cuda.is_available() else "cpu"),
         compute_type=("float16" if torch.cuda.is_available() else "int8"),
+        download_root=None
     )
+    # First pass: Get full transcription with more aggressive VAD
     segments, _ = model.transcribe(
-        str(path),
+        str(temp_path),
+        word_timestamps=True,  # Get word timestamps
+        condition_on_previous_text=True,  # Help with context
+        language="en",
+        task="transcribe",
+        beam_size=10,  # Increase beam size for better accuracy
+        best_of=10,
+        temperature=0.0,  # Be deterministic
+        initial_prompt="This is a conversation or speech that may contain emotional content.",
+        vad_filter=True,
+        vad_parameters=dict(
+            min_silence_duration_ms=100,  # Very short silence duration
+            speech_pad_ms=30,  # Minimal padding
+            threshold=0.2  # More sensitive to speech
+        )
+        initial_prompt="This is a conversation or speech that may contain emotional content.",
+        vad_filter=True,
+        vad_parameters=dict(
+            min_silence_duration_ms=500,
+            speech_pad_ms=200,
+            threshold=0.35
+        )
+    )
+    
+    # Second pass with different VAD settings
+    segments_with_times, _ = model.transcribe(
+        str(temp_path),
         word_timestamps=True,
-        condition_on_previous_text=False,
+        condition_on_previous_text=True,
         language="en",
         task="transcribe",
         beam_size=5,
-        best_of=5,
-        temperature=0.0,
         vad_filter=True,
         vad_parameters=dict(
-            min_silence_duration_ms=200,  # even shorter silence for more segments
-            speech_pad_ms=50,  # minimal padding
-            threshold=0.3  # more sensitive to speech
+            min_silence_duration_ms=300,
+            speech_pad_ms=100,
+            threshold=0.3
         )
     )
+    
+    # Combine results to get more accurate segments
+    combined_segments = []
+    for seg1, seg2 in zip(segments, segments_with_times):
+        # Use timing from first pass (more aggressive VAD) but verify with second pass
+        if abs(seg1.start - seg2.start) < 0.5:  # If segments roughly align
+            combined_segments.append({
+                "start": float(seg1.start),
+                "end": float(seg1.end),
+                "text": seg1.text.strip()
+            })
+    
+    # Clean up temporary file
+    temp_path.unlink()
+    
+    # If no segments were aligned, fall back to first pass results
+    if not combined_segments:
+        combined_segments = [{
+            "start": float(seg.start),
+            "end": float(seg.end),
+            "text": seg.text.strip()
+        } for seg in segments]
+    
+    # Get the full text by combining all segments
+    full_text = " ".join(seg["text"] for seg in combined_segments)
+    
+    return full_text, combined_segments
+    
+    # Combine results: Use timing from second pass but text from first pass
+    # for better accuracy
+    aligned_segments = []
+    first_pass_texts = [seg.text.strip() for seg in segments]
+    full_text = " ".join(first_pass_texts)
+    
+    for seg in segments_with_times:
+        aligned_segments.append({
+            "start": float(seg.start),
+            "end": float(seg.end),
+            "text": seg.text.strip()
+        })
+    
+    return full_text, aligned_segments
     sents = [{"start": float(seg.start), "end": float(seg.end), "text": seg.text.strip()} for seg in segments]
     full_text = " ".join(s["text"] for s in sents).strip()
     return full_text, sents
@@ -133,7 +238,7 @@ def _norm_text(t: str) -> str:
     return t.strip()
 
 
-def merge_short_segments(segments, min_dur=0.3, min_tokens=1, max_gap=0.1):
+def merge_short_segments(segments, min_dur=0.5, min_tokens=2, max_gap=0.2):
     """Łączy za krótkie segmenty w większe fragmenty, by model dostawał sensowne zdania."""
     if not segments:
         return segments
@@ -191,7 +296,7 @@ def main():
 
     # default example if nothing passed
     if not args.url and not args.path:
-        example_url = "https://www.youtube.com/watch?v=7QkJ6IYikWo"
+        example_url = "https://www.youtube.com/watch?v=hkSj-QapfZo"
         print(f"No --url/--path provided — using example video: {example_url}")
         args.url = example_url
 
