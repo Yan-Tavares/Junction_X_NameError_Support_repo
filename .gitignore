@@ -6,6 +6,7 @@ out/
 data/
 temp/
 external/
+/app.py
 
 # Python
 __pycache__/
