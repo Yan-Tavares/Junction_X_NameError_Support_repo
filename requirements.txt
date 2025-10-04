@@ -1,0 +1,18 @@
+# Core Framework
+fastapi
+uvicorn[standard]
+python-multipart
+streamlit
+
+# ML
+torch
+
+# Visualization
+plotly
+
+# API & HTTP
+requests
+
+# Configuration & Environment
+pydantic
+pydantic-settings
