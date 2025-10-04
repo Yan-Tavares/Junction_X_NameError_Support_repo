@@ -1,1 +1,10 @@
 /models
+emotion_env/
+ravdess_raw/
+emotion_model/
+*.wav
+*.json
+*.pyc
+*.safetensors
+*.bin
+
