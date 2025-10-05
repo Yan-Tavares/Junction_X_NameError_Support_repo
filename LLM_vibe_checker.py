@@ -1,13 +1,13 @@
 import sys
 import torch
 import librosa
+import numpy as np
 from transformers import AutoModelForAudioClassification, Wav2Vec2FeatureExtractor
 from transformers import Wav2Vec2FeatureExtractor, Wav2Vec2ForSequenceClassification
 from faster_whisper import WhisperModel
 from GPT_api import analyze_extremism
 import json
 import os
-
 
 def LLM_clf_w_audio_context(json_path):
     """

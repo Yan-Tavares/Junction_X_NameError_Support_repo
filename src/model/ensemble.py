@@ -10,7 +10,6 @@ from pipeline.preprocessing import preprocess_audio
 from pipeline.transcription import AudioTranscriber, extract_timestamps
 from pipeline.postprocessing import ResultAssembler, ensemble_predictions, validate_predictions
 
-
 class Ensemble:
     """Ensemble multiple models and combine their predictions."""
     
@@ -53,10 +52,10 @@ class Ensemble:
         self.audio_path = path_to_audio
         
         # Step 1: Preprocess audio using pipeline module
-        processed_audio = preprocess_audio(path_to_audio)
+        audio_path, emphasized_audio = preprocess_audio(path_to_audio)
         
         # Step 2: Transcribe and get segments using pipeline module
-        full_transcript, segments = self.transcriber.transcribe(processed_audio)
+        full_transcript, segments = self.transcriber.transcribe(audio_path)
         
         # Step 3: Extract timestamps and texts
         timestamps = extract_timestamps(segments)
@@ -76,7 +75,7 @@ class Ensemble:
         for i, model in enumerate(self.models):
             if model.input_type == "audio":
                 # For audio models, pass segment info
-                pred = model.predict(segments)
+                pred = model.predict(segments, audio_path)
             elif model.input_type == "text":
                 # For text models, pass just the text
                 pred = model.predict(self.text_samples)

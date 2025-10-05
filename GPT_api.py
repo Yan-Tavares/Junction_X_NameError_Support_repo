@@ -5,6 +5,10 @@ from typing import Literal, Optional, Union
 from trustcall import create_extractor
 from langchain_ollama import ChatOllama
 
+# Make sure to intall ollama via de website
+# Then restart the VSCode 
+# pull the model via ollama pull llama3.2
+
 # Initialize the LangChain Ollama model
 # Models that support tool calling: llama3.1, llama3.2, mistral, qwen2.5, command-r
 MODEL_NAME = "llama3.2"  # or "mistral", "qwen2.5:3b" for smaller size
@@ -43,7 +47,7 @@ You are not biased toward over-flagging or under-flagging: your role is to weigh
 
 You receive:
 1. The spoken sentence (transcribed).
-2. The detected tone/emotion label (e.g., angry, calm, sarcastic, etc.).
+2. The detected tone/emotion label (e.g., angry, sad, happy, etc.).
 3. The tone intensity score (e.g., 0.0-1.0).
 4. Optional prosodic features (pitch, emphasis, pace).
 
