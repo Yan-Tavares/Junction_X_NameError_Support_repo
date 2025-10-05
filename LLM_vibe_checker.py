@@ -1,13 +1,13 @@
 import sys
 import torch
 import librosa
+import numpy as np
 from transformers import AutoModelForAudioClassification, Wav2Vec2FeatureExtractor
 from transformers import Wav2Vec2FeatureExtractor, Wav2Vec2ForSequenceClassification
 from faster_whisper import WhisperModel
 from GPT_api import analyze_extremism
 import json
 import os
-
 
 def LLM_clf_w_audio_context(json_path):
     """
@@ -20,14 +20,24 @@ def LLM_clf_w_audio_context(json_path):
     with open(json_path, "r", encoding="utf-8") as f:
         augmented_texts_dict = json.load(f)
 
-    # Process each augmented text
-    for segment_id, augmented_text in augmented_texts_dict.items():
+    # Convert to list to maintain order and enable context extraction
+    segment_items = list(augmented_texts_dict.items())
+    
+    # Process each augmented text with context
+    for idx, (segment_id, augmented_text) in enumerate(segment_items):
         print(f"Processing segment {segment_id}...")
         print(f"Augmented text: {augmented_text}")
         
-        # 🔥 LLM analysis with full augmented context (includes prosodic features)
-        # The augmented text already contains emotion, intensity, and prosodic labels
-        llm_result = analyze_extremism(augmented_text)
+        # Extract context: up to 2 previous and 2 following segments
+        context_before = [segment_items[i][1] for i in range(max(0, idx-2), idx)]
+        context_after = [segment_items[i][1] for i in range(idx+1, min(len(segment_items), idx+3))]
+        
+        # 🔥 LLM analysis with full augmented context (includes prosodic features + surrounding context)
+        llm_result = analyze_extremism(
+            augmented_text, 
+            context_before=context_before if context_before else None,
+            context_after=context_after if context_after else None
+        )
         
         llm_results.append({
             'id': segment_id,

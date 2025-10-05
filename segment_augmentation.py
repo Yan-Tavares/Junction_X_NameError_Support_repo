@@ -6,6 +6,7 @@ from transformers import AutoModelForAudioClassification, Wav2Vec2FeatureExtract
 from transformers import Wav2Vec2FeatureExtractor, Wav2Vec2ForSequenceClassification
 from faster_whisper import WhisperModel
 
+
 def extract_prosodic_features(signal, sr=16000):
     """
     Extract prosodic features that indicate speaking tone/style.
@@ -153,7 +154,6 @@ def classify_emotions(emotion_model, signal, sr=16000):
 
     return id2label[pred_id], instensity_score
 
-
 def vibe_check_segment(emotion_model, emotion_feature_extractor, intensity_model, intensity_feature_extractor, file_path, segment, sr=16000):
     # Load audio
     audio, _ = librosa.load(file_path, sr=sr, offset=segment.start, duration=segment.end-segment.start)
@@ -166,8 +166,10 @@ def vibe_check_segment(emotion_model, emotion_feature_extractor, intensity_model
 
     return emotion, intensity, prosodic_features, prosodic_categories
 
-def augment_segments(segments_list, file_path):
+def augment_segments(segments, file_path):
     
+    segments_list = list(segments)
+
     emotion_results = []
     instensity_results = []
     prosodic_results = []
@@ -184,7 +186,6 @@ def augment_segments(segments_list, file_path):
 
         emotion, intensity, prosodic_features, prosodic_categories = vibe_check_segment(
             emotion_model, emotion_feature_extractor, 
-            intensity_model, intensity_feature_extractor, 
             file_path, segment, sr=16000
         )
 
@@ -222,7 +223,7 @@ def augment_segments(segments_list, file_path):
             f"pace={prosodic_categories['pace']}]"
         )
         augmented_texts[segment.id] = augmented_text
-    
+        
     # Save to json file
     with open("data/augmented_texts.json", "w") as f:
         import json
@@ -250,12 +251,6 @@ print(f"Using device: {DEVICE}")
 MODEL_DIR = "./fine_tuned_emotion_model"
 emotion_model = AutoModelForAudioClassification.from_pretrained(MODEL_DIR).to(DEVICE)
 emotion_feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained(MODEL_DIR)
-
-
-model_name = "superb/wav2vec2-base-superb-er"
-intensity_model = Wav2Vec2ForSequenceClassification.from_pretrained(model_name).to(DEVICE)
-intensity_feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained(model_name)
-print("Intensity model loaded successfully!")
 
 
 if __name__ == "__main__":

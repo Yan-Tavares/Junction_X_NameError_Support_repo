@@ -44,7 +44,7 @@ def preprocess_audio(filepath, sr=16000, pre_emphasis=0.97, apply_noise_reductio
     temp_path = filepath.parent / (filepath.stem + "_processed.wav")
     sf.write(str(temp_path), emphasized_audio, sr)
     
-    return temp_path
+    return temp_path , emphasized_audio
 
 
 def apply_spectral_gating(audio):
