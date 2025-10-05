@@ -42,12 +42,12 @@ class ToxicityModel(BaseSentimentModel):
     high toxicity -> lift 'potentially'; extreme toxicity + extreme lexicon (from analyzer) -> 'extremist'.
     For pure text-only, we map by thresholds.
     """
-    def __init__(self, model_name="unitary/toxic-bert", device=None):
+    def __init__(self, model_path="unitary/toxic-bert", device=None):
         super().__init__()
         self.input_type = "text"
         self.labels = LABELS
         self.device = 0 if (device in (0, "cuda") or torch.cuda.is_available()) else -1
-        self.pipe = pipeline("text-classification", model=model_name, device=self.device, truncation=True)
+        self.pipe = pipeline("text-classification", model=model_path, device=self.device, truncation=True)
     
     def predict(self, texts):
         # returns [{'label': 'toxic', 'score': p}] or multi-label depending on model; standardize:
@@ -70,12 +70,12 @@ class ToxicityModel(BaseSentimentModel):
 
 
 class ZeroShotExtremismNLI(BaseSentimentModel):
-    def __init__(self, model_name="facebook/bart-large-mnli", device=None):
+    def __init__(self, model_path="facebook/bart-large-mnli", device=None):
         super().__init__()
         self.input_type = "text"
         self.labels = LABELS
         self.device = 0 if (device in (0, "cuda") or torch.cuda.is_available()) else -1
-        self.pipe = pipeline("zero-shot-classification", model=model_name, device=self.device)
+        self.pipe = pipeline("zero-shot-classification", model=model_path, device=self.device)
 
         self.candidate_labels = [
             "the text supports or praises extremist ideology or organizations",

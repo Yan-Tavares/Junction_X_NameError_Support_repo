@@ -20,7 +20,6 @@ class BaseSentimentModel:
         """
         self.labels = LABELS
         self.input_type = "text"
-        raise NotImplementedError()
 
 
     def predict(self, split_text):
