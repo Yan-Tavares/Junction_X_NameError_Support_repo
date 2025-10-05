@@ -25,91 +25,115 @@ chmod +x quickstart.sh
 
 ### 3. Run the Application
 
-#### Option A: Streamlit UI Only (for quick demo)
-```bash
-# Make script executable
-chmod +x run_streamlit.sh
-
-# Run Streamlit
-./run_streamlit.sh
-# or directly:
-streamlit run streamlit_app.py
-```
-🌐 Open browser to: **http://localhost:8501**
-
-#### Option B: Full Stack (API + UI)
-
 **Terminal 1 - Run API Server:**
 ```bash
 chmod +x run_api.sh
 ./run_api.sh
-# or directly:
-python -m uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --reload
 ```
-📚 API docs: **http://localhost:8000/docs**
+API docs: http://localhost:8000/docs
 
-**Terminal 2 - Run Streamlit:**
+**Terminal 2 - Run Frontend:**
 ```bash
-./run_streamlit.sh
+python run_frontend.py
+```
+Open browser to: http://localhost:8080
+
+**OR - Use CLI for Research:**
+```bash
+# Check API health
+./vfw health
+
+# Analyze single file
+./vfw analyze audio.wav -v
+
+# Screen training data directory
+./vfw screen ./training_data/
+
+# See full CLI documentation
+cat CLI_README.md
 ```
 
 ## 🏗️ Architecture
 
 ```
-┌─────────────────┐
-│  Streamlit UI   │ ← User Interface (Port 8501)
-└────────┬────────┘
-         │ REST API
-    ┌────▼─────┐
-    │ FastAPI  │ ← Backend Server (Port 8000)
-    │  Server  │
-    └────┬─────┘
-         │
-    ┌────▼────────────┐
-    │ ML Pipeline     │
-    │ 1. Whisper STT  │ ← Speech-to-Text
-    │ 2. Classifier   │ ← Content Classification
-    │ 3. Timestamps   │ ← Segment Extraction
-    └─────────────────┘
+┌─────────────────┐         ┌─────────────────┐
+│   Web Frontend  │         │   CLI Tool      │
+│  (Port 8080)    │         │  (Research)     │
+└────────┬────────┘         └────────┬────────┘
+         │                           │
+         └───────────┬───────────────┘
+                     │ REST API
+                ┌────▼─────┐
+                │ FastAPI  │ ← Backend Server (Port 8000)
+                │  Server  │
+                └────┬─────┘
+                     │
+                ┌────▼────────────┐
+                │ ML Pipeline     │
+                │ 1. Whisper STT  │ ← Speech-to-Text
+                │ 2. Classifier   │ ← Content Classification
+                │ 3. Timestamps   │ ← Segment Extraction
+                └─────────────────┘
 ```
+
+## 🎯 Two Interfaces, Two Audiences
+
+### 🌐 Web UI - For General Users
+- **Purpose**: Screen materials children may be exposed to
+- **Use cases**: Parents, educators, content moderators
+- **Features**: Drag & drop, visual results, easy to use
+
+### 🖥️ CLI - For Researchers
+- **Purpose**: Screen training data for speech models
+- **Use cases**: ML researchers, dataset curation, automation
+- **Features**: Batch processing, CSV/JSON export, filtering, reports
+- **Documentation**: See [CLI_README.md](CLI_README.md)
 
 ## 📂 Project Structure
 
 ```
-vocal-firewall/
+.
+├── index.html               # Web UI
+├── app.js                   # Frontend logic
+├── run_frontend.py          # Frontend server
+├── streamlit_app.py         # Streamlit UI
+├── requirements.txt         # Dependencies
+├── ensemble_config.yaml     # Model configuration
+├── quickstart.sh            # Setup script (Linux/Mac)
+├── run_api.sh               # Launch API
+├── run_streamlit.sh         # Launch UI (legacy)
+├── SETUP.md                 # Detailed setup guide
 │
-├── 📄 streamlit_app.py          # Streamlit UI application
-├── 📄 requirements.txt          # Python dependencies
-├── 📄 ensemble_config.yaml      # Model configuration
-├── 📄 quickstart.sh             # Setup script (Linux/Mac)
-├── 📄 run_api.sh                # API launcher (Linux/Mac)
-├── 📄 run_streamlit.sh          # UI launcher (Linux/Mac)
-├── 📄 README.md                 # This file
-├── 📄 REFACTORING_SUMMARY.md    # Refactoring documentation
+├── vfw_cli.py               # CLI tool (main script)
+├── vfw                      # CLI wrapper script
+├── CLI_README.md            # CLI documentation
+├── CLI_EXAMPLES.md          # CLI usage examples
 │
-├── 📁 src/                      # Source code
-│   ├── 📄 config.py             # Application settings
-│   ├── 📄 __init__.py
+├── src/                     # Source code
+│   ├── config.py            # Application settings
+│   ├── __init__.py
 │   │
-│   ├── 📁 api/                  # REST API
-│   │   ├── 📄 main.py           # FastAPI endpoints
-│   │   └── 📄 __init__.py
+│   ├── api/                 # REST API
+│   │   ├── main.py          # FastAPI endpoints
+│   │   └── __init__.py
 │   │
-│   ├── 📁 model/                # ML Models
-│   │   ├── 📄 ensemble.py       # Ensemble orchestrator
-│   │   ├── 📄 ola1.py           # SentimentModel (RoBERTa)
-│   │   ├── 📄 dummy.py          # Test model (dev only)
-│   │   ├── 📄 sentiment_base.py # Base model class
-│   │   ├── 📄 vibechecker.py    # Audio prosody (stub)
-│   │   ├── 📄 run_batch.py      # Batch processing
-│   │   └── 📄 __init__.py
+│   ├── model/               # ML Models
+│   │   ├── ensemble.py      # Ensemble orchestrator
+│   │   ├── ola1.py          # SentimentModel (RoBERTa)
+│   │   ├── dummy.py         # Test model (dev only)
+│   │   ├── sentiment_base.py # Base model class
+│   │   ├── vibechecker.py   # Audio prosody (stub)
+│   │   ├── run_batch.py     # Batch processing
+│   │   ├── classic_ML_clf.py
+│   │   ├── MLP_clf_custom_structure.py
+│   │   └── __init__.py
 │   │
-│   └── 📁 pipeline/             # Processing Pipeline (NEW!)
-│       ├── 📄 preprocessing.py  # Audio preprocessing
-│       ├── 📄 transcription.py  # Speech-to-text
-│       ├── 📄 postprocessing.py # Result assembly
-│       ├── 📄 initialize.py     # Model initialization
-│       └── 📄 __init__.py
+│   └── pipeline/            # Processing Pipeline
+│       ├── preprocessing.py # Audio preprocessing
+│       ├── transcription.py # Speech-to-text
+│       ├── postprocessing.py # Result assembly
+│       ├── initialize.py   # Model initialization
+│       └── __init__.py
 │
 ├── data/
 │   └── sample database/     # Test audio files
@@ -124,7 +148,9 @@ vocal-firewall/
 - `POST /analyze` - Analyze single audio file
 - `POST /analyze/batch` - Batch process multiple files
 
-API documentation: http://localhost:8000/docs
+**API documentation**: http://localhost:8000/docs
+
+**Access via CLI**: `./vfw --help`
 
 ## 🧪 Testing
 
@@ -132,4 +158,10 @@ API documentation: http://localhost:8000/docs
 # Test API with curl
 curl -X POST http://localhost:8000/analyze \
   -F "file=@path/to/audio.wav"
+
+# Test with CLI (recommended)
+./vfw analyze path/to/audio.wav -v
+
+# Test batch processing
+./vfw batch -d ./data/sample\ database/
 ```
