@@ -918,6 +918,63 @@
             color: var(--gray-700);
             line-height: var(--leading-relaxed);
         }
+        
+        /* ===== INPUT MODE TOGGLE ===== */
+        .input-mode-toggle {
+            display: flex;
+            gap: var(--space-xs);
+            background: var(--gray-100);
+            padding: 4px;
+            border-radius: var(--radius-md);
+            margin-bottom: var(--space-lg);
+        }
+        
+        .input-mode-btn {
+            flex: 1;
+            padding: var(--space-sm) var(--space-base);
+            background: transparent;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-size: var(--font-sm);
+            font-weight: 600;
+            color: var(--gray-600);
+            cursor: pointer;
+            transition: all var(--transition-base);
+        }
+        
+        .input-mode-btn:hover {
+            color: var(--gray-900);
+        }
+        
+        .input-mode-btn.active {
+            background: white;
+            color: var(--primary);
+            box-shadow: var(--shadow-xs);
+        }
+        
+        /* ===== YOUTUBE CONTAINER ===== */
+        .youtube-input-container {
+            margin-bottom: var(--space-base);
+        }
+        
+        .youtube-player-container {
+            position: relative;
+            padding-bottom: 56.25%; /* 16:9 aspect ratio */
+            height: 0;
+            overflow: hidden;
+            border-radius: var(--radius-md);
+            background: var(--gray-900);
+            margin-bottom: var(--space-base);
+        }
+        
+        .youtube-player-container iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border-radius: var(--radius-md);
+        }
     </style>
 </head>
 <body>
@@ -936,36 +993,64 @@
             <!-- Sidebar -->
             <div>
                 <div class="card card-padding mb-lg">
-                    <!-- Upload Section -->
-                    <div class="mb-lg">
-                        <input type="file" id="audioFile" 
-                            accept="audio/*,.wav,.mp3,.ogg,.flac,.m4a,.webm"
-                            class="hidden">
-                        
-                        <!-- Dropzone (shown when no file) -->
-                        <div id="uploadDropzone" class="upload-dropzone">
-                            <div class="upload-icon">📁</div>
-                            <div class="upload-text">Drag & drop audio file here</div>
-                            <div class="upload-hint">or click to browse</div>
-                            <div class="upload-hint" style="margin-top: var(--space-xs);">
-                                WAV, MP3, OGG, FLAC, M4A, WebM
+                    <!-- Input Mode Toggle -->
+                    <div class="input-mode-toggle">
+                        <button class="input-mode-btn active" id="fileModeBtn">📁 Upload File</button>
+                        <button class="input-mode-btn" id="youtubeModeBtn">▶️ YouTube Link</button>
+                    </div>
+                    
+                    <!-- File Upload Section -->
+                    <div id="fileUploadSection">
+                        <div class="mb-lg">
+                            <input type="file" id="audioFile" 
+                                accept="audio/*,.wav,.mp3,.ogg,.flac,.m4a,.webm"
+                                class="hidden">
+                            
+                            <!-- Dropzone (shown when no file) -->
+                            <div id="uploadDropzone" class="upload-dropzone">
+                                <div class="upload-icon">📁</div>
+                                <div class="upload-text">Drag & drop audio file here</div>
+                                <div class="upload-hint">or click to browse</div>
+                                <div class="upload-hint" style="margin-top: var(--space-xs);">
+                                    WAV, MP3, OGG, FLAC, M4A, WebM
+                                </div>
+                            </div>
+                            
+                            <!-- File Info (shown when file selected) -->
+                            <div id="fileInfo" class="file-info hidden">
+                                <div class="file-info-icon">🎵</div>
+                                <div class="file-info-details">
+                                    <div class="file-info-name" id="fileInfoName"></div>
+                                    <div class="file-info-size" id="fileInfoSize"></div>
+                                </div>
+                                <button class="file-remove-btn" id="removeFileBtn" title="Remove file">×</button>
                             </div>
                         </div>
                         
-                        <!-- File Info (shown when file selected) -->
-                        <div id="fileInfo" class="file-info hidden">
-                            <div class="file-info-icon">🎵</div>
-                            <div class="file-info-details">
-                                <div class="file-info-name" id="fileInfoName"></div>
-                                <div class="file-info-size" id="fileInfoSize"></div>
-                            </div>
-                            <button class="file-remove-btn" id="removeFileBtn" title="Remove file">×</button>
+                        <!-- Audio Player -->
+                        <div id="audioPlayerContainer" class="mb-lg hidden">
+                            <audio id="audioPlayer" controls></audio>
                         </div>
                     </div>
                     
-                    <!-- Audio Player -->
-                    <div id="audioPlayerContainer" class="mb-lg hidden">
-                        <audio id="audioPlayer" controls></audio>
+                    <!-- YouTube Section -->
+                    <div id="youtubeSection" class="hidden">
+                        <div class="youtube-input-container">
+                            <label class="form-label">YouTube Video URL</label>
+                            <input type="text" id="youtubeUrl" 
+                                class="input-field mb-sm"
+                                placeholder="https://www.youtube.com/watch?v=...">
+                            <button id="loadYoutubeBtn" class="btn btn-primary">Load Video</button>
+                        </div>
+                        
+                        <!-- YouTube Player -->
+                        <div id="youtubePlayerContainer" class="youtube-player-container hidden">
+                            <iframe id="youtubePlayer" 
+                                frameborder="0"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allowfullscreen>
+                            </iframe>
+                        </div>
                     </div>
                     
                     <!-- Analyze Button -->

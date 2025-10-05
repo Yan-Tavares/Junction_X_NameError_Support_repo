@@ -1,6 +1,8 @@
 // State management
 let analysisResults = null;
 let uploadedFile = null;
+let youtubeUrl = null;
+let currentInputMode = 'file'; // 'file' or 'youtube'
 
 // DOM Elements
 const audioFileInput = document.getElementById('audioFile');
@@ -21,6 +23,18 @@ const confidenceThresholdInput = document.getElementById('confidenceThreshold');
 const thresholdValue = document.getElementById('thresholdValue');
 const exportBtn = document.getElementById('exportBtn');
 
+// Input mode toggle elements
+const fileModeBtn = document.getElementById('fileModeBtn');
+const youtubeModeBtn = document.getElementById('youtubeModeBtn');
+const fileUploadSection = document.getElementById('fileUploadSection');
+const youtubeSection = document.getElementById('youtubeSection');
+
+// YouTube elements
+const youtubeUrlInput = document.getElementById('youtubeUrl');
+const loadYoutubeBtn = document.getElementById('loadYoutubeBtn');
+const youtubePlayerContainer = document.getElementById('youtubePlayerContainer');
+const youtubePlayer = document.getElementById('youtubePlayer');
+
 // Event Listeners
 audioFileInput.addEventListener('change', handleFileSelect);
 analyzeBtn.addEventListener('click', analyzeAudio);
@@ -38,6 +52,13 @@ uploadDropzone.addEventListener('dragover', handleDragOver);
 uploadDropzone.addEventListener('dragleave', handleDragLeave);
 uploadDropzone.addEventListener('drop', handleDrop);
 removeFileBtn.addEventListener('click', handleRemoveFile);
+
+// Input mode toggle events
+fileModeBtn.addEventListener('click', () => switchInputMode('file'));
+youtubeModeBtn.addEventListener('click', () => switchInputMode('youtube'));
+
+// YouTube events
+loadYoutubeBtn.addEventListener('click', loadYoutubeVideo);
 
 // Remove focus flash from details/summary elements
 document.addEventListener('DOMContentLoaded', () => {
@@ -133,6 +154,69 @@ function handleRemoveFile(e) {
     analyzeBtn.disabled = true;
 }
 
+// Switch input mode between file and YouTube
+function switchInputMode(mode) {
+    currentInputMode = mode;
+    
+    if (mode === 'file') {
+        // Show file section, hide YouTube section
+        fileUploadSection.classList.remove('hidden');
+        youtubeSection.classList.add('hidden');
+        
+        // Update button styles
+        fileModeBtn.classList.add('active');
+        youtubeModeBtn.classList.remove('active');
+        
+        // Enable analyze if file is uploaded
+        analyzeBtn.disabled = !uploadedFile;
+    } else if (mode === 'youtube') {
+        // Show YouTube section, hide file section
+        fileUploadSection.classList.add('hidden');
+        youtubeSection.classList.remove('hidden');
+        
+        // Update button styles
+        fileModeBtn.classList.remove('active');
+        youtubeModeBtn.classList.add('active');
+        
+        // Enable analyze if YouTube video is loaded
+        analyzeBtn.disabled = !youtubeUrl;
+    }
+}
+
+// Extract YouTube video ID from URL
+function extractYoutubeVideoId(url) {
+    const regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[7].length === 11) ? match[7] : null;
+}
+
+// Load YouTube video
+function loadYoutubeVideo() {
+    const url = youtubeUrlInput.value.trim();
+    
+    if (!url) {
+        alert('Please enter a YouTube URL');
+        return;
+    }
+    
+    const videoId = extractYoutubeVideoId(url);
+    
+    if (!videoId) {
+        alert('Invalid YouTube URL. Please enter a valid YouTube video link.');
+        return;
+    }
+    
+    // Store the URL
+    youtubeUrl = url;
+    
+    // Embed the video
+    youtubePlayer.src = `https://www.youtube.com/embed/${videoId}`;
+    youtubePlayerContainer.classList.remove('hidden');
+    
+    // Enable analyze button
+    analyzeBtn.disabled = false;
+}
+
 // Utility to format file size
 function formatFileSize(bytes) {
     if (bytes === 0) return '0 Bytes';
@@ -144,14 +228,20 @@ function formatFileSize(bytes) {
 
 // Analyze audio
 async function analyzeAudio() {
-    if (!uploadedFile) {
-        alert('Please select an audio file first');
-        return;
-    }
-
     const apiUrl = apiUrlInput.value.trim();
     if (!apiUrl) {
         alert('Please enter an API endpoint');
+        return;
+    }
+
+    // Check if we have input
+    if (currentInputMode === 'file' && !uploadedFile) {
+        alert('Please select an audio file first');
+        return;
+    }
+    
+    if (currentInputMode === 'youtube' && !youtubeUrl) {
+        alert('Please load a YouTube video first');
         return;
     }
 
@@ -160,6 +250,12 @@ async function analyzeAudio() {
     loadingIndicator.classList.remove('hidden');
 
     try {
+        if (currentInputMode === 'youtube') {
+            // YouTube analysis not yet implemented
+            throw new Error('YouTube video analysis is not yet implemented. Please use the file upload option for now.');
+        }
+        
+        // File upload mode
         const formData = new FormData();
         formData.append('file', uploadedFile);
 
@@ -452,7 +548,19 @@ function exportResults() {
     
     const link = document.createElement('a');
     link.href = url;
-    link.download = `analysis_${uploadedFile ? uploadedFile.name : 'results'}.json`;
+    
+    // Generate filename based on input mode
+    let filename;
+    if (currentInputMode === 'file' && uploadedFile) {
+        filename = `analysis_${uploadedFile.name}.json`;
+    } else if (currentInputMode === 'youtube' && youtubeUrl) {
+        const videoId = extractYoutubeVideoId(youtubeUrl);
+        filename = `analysis_youtube_${videoId || 'video'}.json`;
+    } else {
+        filename = 'analysis_results.json';
+    }
+    
+    link.download = filename;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
