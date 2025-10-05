@@ -2,36 +2,47 @@ ensemble:
   ...
 
 models:
-  # Advanced Models / Format: unique_key: {class: ModelClassName, args: {...}}
+  # ============================
+  # Sentiment Model Ensemble
+  # ============================
+  # Four specialized text classifiers for hate speech detection
+  # Each model has different strengths and weighting strategies
   
-  # Primary hate speech classifier (fine-tuned RoBERTa)
-  sentiment_model_1:
-    class: SentimentModel
+  # 1. HateXplain
+  base_sentiment:
+    class: BaseSentimentModel
     args:
-      text_model_path: cardiffnlp/twitter-roberta-base-hate-latest
+      text_model_path: models/hatexplain-roberta-mini
   
-  # Dummy models for testing (can be removed)
-  # model_1:
+  # 2. Toxicity Model - Conservative toxicity detection (reduces false positives)
+  toxicity:
+    class: ToxicityModel
+    args:
+      model_name: unitary/toxic-bert
+
+  # 3. Zero-Shot Extremism NLI - Zero-shot model for extremism detection
+  zero_shot_extremism:
+    class: ZeroShotExtremismNLI
+    args:
+      model_name: unitary/zero-shot-english
+
+  # 4. Heuristic Lexicon Model - Rule-based model for hate speech detection
+  heuristic_lexicon:
+    class: HeuristicLexiconModel
+    args:
+      lexicon_path: models/heuristic_lexicon.json
+
+  # ============================
+  # Dummy Models (for testing)
+  # ============================
+  # Uncomment to test ensemble behavior with dummy predictors
+  
+  # dummy_1:
   #   class: DummyModel
   #   args:
   #     seed: 0
-
-  # model_2:
+  
+  # dummy_2:
   #   class: DummyModel
   #   args:
   #     seed: 42
-
-  # - BaseSentimentModel:
-  #   model_path: models/Sentiment-Analysis/model1/
-
-  # BaseSentimentModel:
-  #   model_path: models/Sentiment-Analysis/model2/
-
-  # - BaseSentimentModel:
-  #     model_path: models/Sentiment-Analysis/model3/
-
-  # - BaseSentimentModel:
-  #     model_path: models/Sentiment-Analysis/model4/
-
-  # - VibeCheckerModel: 
-  #     model_path: models/VibeChecker/

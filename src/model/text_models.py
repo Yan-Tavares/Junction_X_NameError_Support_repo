@@ -1,8 +1,13 @@
-# models_text.py
-
 import numpy as np, torch
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, pipeline
-from .sentiment_base import BaseSentimentModel, LABELS, to_prob3
+import os, sys
+
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+if PROJECT_ROOT not in sys.path:
+    sys.path.append(PROJECT_ROOT)
+
+from src.model.sentiment_base import BaseSentimentModel, LABELS, to_prob3
+
 
 class HateXplainModel(BaseSentimentModel):
     def __init__(self, model_path="models/hatexplain-roberta-mini", device=None):
@@ -29,6 +34,7 @@ class HateXplainModel(BaseSentimentModel):
                 p[self.idxs[i]] = comp["score"]
             P.append(p)
         return np.asarray(P, dtype=np.float32)
+
 
 class ToxicityModel(BaseSentimentModel):
     """
@@ -62,6 +68,7 @@ class ToxicityModel(BaseSentimentModel):
             probs.append(p)
         return np.asarray(probs, dtype=np.float32)
 
+
 class ZeroShotExtremismNLI(BaseSentimentModel):
     def __init__(self, model_name="facebook/bart-large-mnli", device=None):
         super().__init__()
@@ -89,6 +96,7 @@ class ZeroShotExtremismNLI(BaseSentimentModel):
             scores /= scores.sum() + 1e-9
             P.append(scores)
         return np.asarray(P, dtype=np.float32)
+
 
 class HeuristicLexiconModel(BaseSentimentModel):
     def __init__(self, lexicon=None):
