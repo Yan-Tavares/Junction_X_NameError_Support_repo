@@ -4,7 +4,6 @@ SETUP.md
 models/
 out/
 data/
-definition/
 temp/
 external/
 /app.py

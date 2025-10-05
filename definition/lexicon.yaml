@@ -1,0 +1,28 @@
+# Extremism Detection Lexicon
+# Each pattern is a regex that will be matched against lowercase text
+# Weight determines how much each match contributes to the extremism score
+# Higher weights indicate stronger extremist indicators
+
+patterns:
+  # Terrorist organizations
+  - pattern: '\b(islamic state|isis|daesh|al[- ]qaeda|kkk|nazi|white power)\b'
+    weight: 1.0
+    category: terrorist_organizations
+  
+  # Explicit extremist slogans
+  - pattern: '\b(heil hitler|14/88|14 words|blood and soil)\b'
+    weight: 1.2
+    category: extremist_slogans
+  
+  # Religious extremism indicators
+  - pattern: '\b(caliphate|jihadist)\b'
+    weight: 0.6
+    category: religious_extremism
+  
+  # Violence and hate speech
+  - pattern: '\b(gas the [^\s]+|ethnic cleansing|race war|cleanse)\b'
+    weight: 1.3
+    category: violent_hate_speech
+  - pattern: '\b(overthrow|rise up|take back)\b'
+    weight: 0.8
+    category: violent_hate_speech
