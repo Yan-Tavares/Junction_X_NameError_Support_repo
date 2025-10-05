@@ -21,21 +21,46 @@ class HateXplainModel(BaseSentimentModel):
         self.model = AutoModelForSequenceClassification.from_pretrained(model_path)
         self.pipe = pipeline("text-classification", model=self.model,
                              tokenizer=self.tokenizer, device=self.device,
-                             return_all_scores=True, truncation=True)
+                             return_all_scores=True, truncation=True, max_length=512)
 
         # Ensure your fine-tuned head outputs 3 logits in LABELS order.
         self.idxs = [0,1,2]  # map model indices → LABELS order if needed
 
     def predict(self, texts):
-        outs = self.pipe(texts)
-        # outs: list of list[{'label':..., 'score':...}]
-        P = []
-        for o in outs:
-            p = [0,0,0]
-            for i, comp in enumerate(o):
-                p[self.idxs[i]] = comp["score"]
-            P.append(p)
-        return np.asarray(P, dtype=np.float32)
+        # Sanitize texts to prevent tokenization errors
+        sanitized_texts = []
+        for idx, text in enumerate(texts):
+            # Remove or replace problematic characters
+            # Keep only ASCII printable + common punctuation
+            sanitized = ''.join(char if ord(char) < 128 else ' ' for char in text)
+            # Remove excessive whitespace
+            sanitized = ' '.join(sanitized.split())
+            # Ensure non-empty
+            sanitized = sanitized if sanitized.strip() else "empty"
+            
+            # Log if sanitization changed the text significantly
+            if sanitized != text:
+                non_ascii = [char for char in text if ord(char) >= 128]
+                if non_ascii:
+                    print(f"🔧 HateXplainModel: Sanitized segment {idx}, removed non-ASCII: {non_ascii[:5]}")
+            
+            sanitized_texts.append(sanitized)
+        
+        try:
+            outs = self.pipe(sanitized_texts)
+            # outs: list of list[{'label':..., 'score':...}]
+            P = []
+            for o in outs:
+                p = [0,0,0]
+                for i, comp in enumerate(o):
+                    p[self.idxs[i]] = comp["score"]
+                P.append(p)
+            return np.asarray(P, dtype=np.float32)
+        except IndexError as e:
+            # If tokenization still fails, return neutral predictions
+            print(f"⚠️ HateXplainModel tokenization error: {e}")
+            print(f"   Returning neutral predictions for {len(texts)} segments")
+            return np.array([[0.7, 0.2, 0.1]] * len(texts), dtype=np.float32)
 
 
 class ToxicityModel(BaseSentimentModel):

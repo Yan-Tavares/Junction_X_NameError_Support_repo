@@ -45,6 +45,26 @@ class ResultAssembler:
                 - hate_spans: list of dicts with start, end, text, label, confidence
                 - emotion_analysis: None (placeholder for future)
         """
+        # Validate inputs
+        n_preds = len(predictions)
+        n_timestamps = len(timestamps)
+        n_texts = len(text_samples)
+        
+        if n_timestamps != n_preds + 1:
+            print(f"❌ DEBUG: Timestamp mismatch - predictions: {n_preds}, timestamps: {n_timestamps}, texts: {n_texts}")
+            print(f"   Timestamps: {timestamps}")
+            print(f"   Predictions shape: {predictions.shape if hasattr(predictions, 'shape') else 'N/A'}")
+            raise ValueError(
+                f"Timestamp count mismatch: got {n_timestamps} timestamps for {n_preds} predictions. "
+                f"Expected {n_preds + 1} timestamps (start of each segment + end of last segment)."
+            )
+        
+        if n_texts != n_preds:
+            print(f"❌ DEBUG: Text sample mismatch - predictions: {n_preds}, timestamps: {n_timestamps}, texts: {n_texts}")
+            raise ValueError(
+                f"Text sample count mismatch: got {n_texts} text samples for {n_preds} predictions."
+            )
+        
         hate_spans = []
         
         for i, pred in enumerate(predictions):

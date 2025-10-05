@@ -39,7 +39,7 @@ class VibeCheckerModel:
         self.input_type = "audio"
         
         # Load emotion model for audio analysis
-        MODEL_DIR = "./fine_tuned_emotion_model"
+        MODEL_DIR = "./models/fine_tuned_emotion_model"
         self.emotion_model = AutoModelForAudioClassification.from_pretrained(MODEL_DIR).to(self.device)
         self.emotion_feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained(MODEL_DIR)
         

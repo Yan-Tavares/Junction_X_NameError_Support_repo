@@ -64,6 +64,8 @@ class Ensemble:
         self.text_samples = [seg["text"] for seg in segments]
         self.timestamps = timestamps
         self.segments = segments  # Store for audio models if needed
+        
+        print(f"📊 DEBUG: segments={len(segments)}, text_samples={len(self.text_samples)}, timestamps={len(timestamps)}")
 
         if not self.text_samples:
             print("⚠️ No text segments found, returning empty predictions")
@@ -73,26 +75,37 @@ class Ensemble:
         model_predictions = np.empty((len(self.models), len(self.text_samples), len(self.label_map)))
         
         for i, model in enumerate(self.models):
-            if model.input_type == "audio":
-                # For audio models, pass segment info
-                pred = model.predict(segments, audio_path)
-            elif model.input_type == "text":
-                # For text models, pass just the text
-                pred = model.predict(self.text_samples)
-            else:
-                print(f"⚠️ Unknown input type for model {i}: {model.input_type}")
-                pred = np.ones((len(self.text_samples), len(self.label_map))) / len(self.label_map)
+            print(f"🔄 Running model {i+1}/{len(self.models)}: {model.__class__.__name__} (input_type={model.input_type})")
             
-            # Validate prediction shape using pipeline module
-            expected_shape = (len(self.text_samples), len(self.label_map))
             try:
-                validate_predictions(pred, expected_shape)
-            except ValueError as e:
-                print(f"⚠️ Model {i} returned shape {pred.shape}, expected {expected_shape}")
-                print(f"   Model type: {model.__class__.__name__}, input_type: {model.input_type}")
+                if model.input_type == "audio":
+                    # For audio models, pass segment info
+                    pred = model.predict(segments, audio_path)
+                elif model.input_type == "text":
+                    # For text models, pass just the text
+                    pred = model.predict(self.text_samples)
+                else:
+                    print(f"⚠️ Unknown input type for model {i}: {model.input_type}")
+                    pred = np.ones((len(self.text_samples), len(self.label_map))) / len(self.label_map)
+                
+                print(f"✅ Model {i+1} returned predictions with shape: {pred.shape}")
+                
+                # Validate prediction shape using pipeline module
+                expected_shape = (len(self.text_samples), len(self.label_map))
+                try:
+                    validate_predictions(pred, expected_shape)
+                except ValueError as e:
+                    print(f"⚠️ Model {i} returned shape {pred.shape}, expected {expected_shape}")
+                    print(f"   Model type: {model.__class__.__name__}, input_type: {model.input_type}")
+                    raise
+                
+                model_predictions[i] = pred
+                
+            except Exception as e:
+                print(f"❌ Model {i+1} ({model.__class__.__name__}) failed with error: {type(e).__name__}: {e}")
+                import traceback
+                traceback.print_exc()
                 raise
-            
-            model_predictions[i] = pred
 
         # Step 5: Ensemble predictions using pipeline module
         ensembled_preds = ensemble_predictions(model_predictions, weights=self.weights, bias=self.bias)
@@ -116,6 +129,15 @@ class Ensemble:
                 - hate_spans: list of dicts with start, end, text, label, confidence
                 - emotion_analysis: None (placeholder for future)
         """
+        # Handle empty predictions
+        if len(preds) == 0:
+            return {
+                "audio_path": self.audio_path,
+                "transcript": "",
+                "hate_spans": [],
+                "emotion_analysis": None
+            }
+        
         # Use pipeline module for result assembly
         return self.result_assembler.assemble_predictions(
             predictions=preds,

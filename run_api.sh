@@ -20,6 +20,7 @@ fi
 echo "✓ Set cuDNN library path"
 
 # Run FastAPI with uvicorn
+export CUDA_VISIBLE_DEVICES=""
 python -m uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --reload
 
 echo ""

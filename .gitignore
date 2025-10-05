@@ -12,6 +12,12 @@ ravdess_raw/
 emotion_model/
 streamlit_app.py
 run_streamlit.sh
+xtreme-today/
+PROSODIC*.md
+LLM_vibe_checker.py
+STT_and_processing.py
+run_stt.bat
+
 
 # Python
 __pycache__/

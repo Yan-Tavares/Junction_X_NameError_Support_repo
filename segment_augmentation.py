@@ -248,7 +248,7 @@ print(f"Using device: {DEVICE}")
 # -------------------------
 # 2. Load fine-tuned model
 # -------------------------
-MODEL_DIR = "./fine_tuned_emotion_model"
+MODEL_DIR = "./models/fine_tuned_emotion_model"
 emotion_model = AutoModelForAudioClassification.from_pretrained(MODEL_DIR).to(DEVICE)
 emotion_feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained(MODEL_DIR)
 

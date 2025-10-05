@@ -1,19 +1,5 @@
 ensemble:
-  weights:
-    toxicity: 0.3096755131811168
-    zero_shot_extremism: 0.16334770581764602
-    heuristic_lexicon: 0.41740495048057796
-  bias:
-  - -0.2102141133786453
-  - 0.00621867824162236
-  - 0.3209595700772042
-  metrics:
-    accuracy: 0.36065573770491804
-    f1_macro: 0.2365319865319865
-    f1_weighted: 0.2729342606391787
-  optimization:
-    weight_decay: 0.2
-    description: Regularization strength towards equal weights (1/n) and zero bias
+  weights: {}
 models:
   toxicity:
     class: ToxicityModel
@@ -26,3 +12,11 @@ models:
   heuristic_lexicon:
     class: HeuristicLexiconModel
     args: {}
+  hatexplain-roberta:
+    class: HateXplainModel
+    args:
+      model_path: models/hatexplain-roberta
+  vibe-checker:
+    class: VibeCheckerModel
+    args: {}
+
