@@ -11,11 +11,11 @@ class ResultAssembler:
     
     # Label mapping: from model output indices to API labels
     # Model outputs: [normal, offensive, extremist]
-    # API expects: ["non-hate", "uncertain", "hate"]
+    # API expects: ["safe", "uncertain", "extremist"]
     LABEL_MAP = {
-        0: "non-hate",    # normal -> non-hate
-        1: "uncertain",   # offensive -> uncertain
-        2: "hate"         # extremist -> hate
+        0: "safe",
+        1: "uncertain", 
+        2: "extremist"   
     }
     
     def __init__(self, label_map=None):

@@ -3,7 +3,9 @@ This module contains the base model class. Please use this as parent class when 
 """
 import numpy as np
 
-LABELS = ["extremist", "potentially_extremist", "non_extremist"]
+# CRITICAL: Label order must match ensemble expectations
+# Ensemble expects: [safe, uncertain, extremist]
+LABELS = ["non_extremist", "potentially_extremist", "extremist"]
 
 class BaseSentimentModel:
     """
