@@ -8,6 +8,7 @@ temp/
 external/
 /app.py
 streamlit_app.py
+run_streamlit.sh
 
 # Python
 __pycache__/

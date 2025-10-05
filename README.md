@@ -25,41 +25,24 @@ chmod +x quickstart.sh
 
 ### 3. Run the Application
 
-#### Option A: Streamlit UI Only (for quick demo)
-```bash
-# Make script executable
-chmod +x run_streamlit.sh
-
-# Run Streamlit
-./run_streamlit.sh
-# or directly:
-streamlit run streamlit_app.py
-```
-
-Open browser to: http://localhost:8501
-
-#### Option B: Full Stack (API + UI)
-
 **Terminal 1 - Run API Server:**
 ```bash
 chmod +x run_api.sh
 ./run_api.sh
-# or directly:
-python -m uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --reload
 ```
+API docs: http://localhost:8000/docs
 
-API docs available at: http://localhost:8000/docs
-
-**Terminal 2 - Run Streamlit:**
+**Terminal 2 - Run Frontend:**
 ```bash
-./run_streamlit.sh
+python run_frontend.py
 ```
+Open browser to: http://localhost:8080
 
 ## 🏗️ Architecture
 
 ```
 ┌─────────────────┐
-│  Streamlit UI   │ ← User Interface (Port 8501)
+│   Web Frontend  │ ← HTML/JS UI (Port 8080)
 └────────┬────────┘
          │ REST API
     ┌────▼─────┐
@@ -79,11 +62,11 @@ API docs available at: http://localhost:8000/docs
 
 ```
 .
-├── streamlit_app.py          # Streamlit UI
-├── requirements.txt          # Dependencies
-├── SETUP.md                  # Detailed setup guide
-├── run_streamlit.sh         # Launch UI
+├── index.html               # Web UI
+├── app.js                   # Frontend logic
+├── run_frontend.py          # Frontend server
 ├── run_api.sh               # Launch API
+├── requirements.txt         # Dependencies
 │
 ├── src/
 │   ├── config.py            # Configuration
