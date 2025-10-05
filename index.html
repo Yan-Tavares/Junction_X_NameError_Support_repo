@@ -399,6 +399,9 @@
             padding: 2px 4px;
             border-radius: 3px;
             font-weight: 600;
+            transition: all 0.3s ease;
+            display: inline-block;
+            margin: 0 2px;
         }
         
         .segment-uncertain {
@@ -407,11 +410,29 @@
             padding: 2px 4px;
             border-radius: 3px;
             font-weight: 600;
+            transition: all 0.3s ease;
+            display: inline-block;
+            margin: 0 2px;
         }
         
         .segment-safe {
             color: var(--gray-600);
             font-weight: 400;
+            transition: all 0.3s ease;
+            display: inline-block;
+            margin: 0 2px;
+            padding: 2px 4px;
+        }
+        
+        /* Active segment during playback - Spotify lyrics style */
+        .segment-active {
+            font-size: 1.2em !important;
+            font-weight: 700 !important;
+            line-height: 1.8 !important;
+            padding: 0 4px !important;
+            display: inline-block;
+            transition: all 0.3s ease;
+            vertical-align: baseline;
         }
         
         /* ===== LOADING ===== */
@@ -660,10 +681,30 @@
             color: var(--gray-900);
             padding: var(--space-lg);
             border-radius: var(--radius-md);
-            line-height: var(--leading-relaxed);
+            line-height: 2;
             font-size: var(--font-base);
-            max-height: 400px;
+            max-height: 500px;
             overflow-y: auto;
+            scroll-behavior: smooth;
+            position: relative;
+        }
+        
+        .transcript-container::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .transcript-container::-webkit-scrollbar-track {
+            background: var(--gray-200);
+            border-radius: var(--radius-full);
+        }
+        
+        .transcript-container::-webkit-scrollbar-thumb {
+            background: var(--gray-400);
+            border-radius: var(--radius-full);
+        }
+        
+        .transcript-container::-webkit-scrollbar-thumb:hover {
+            background: var(--gray-500);
         }
         
         .transcript-legend {
@@ -967,7 +1008,8 @@
             margin-bottom: var(--space-base);
         }
         
-        .youtube-player-container iframe {
+        .youtube-player-container iframe,
+        .youtube-player-container > div {
             position: absolute;
             top: 0;
             left: 0;
@@ -1061,7 +1103,7 @@
                     </button>
                     
                     <!-- Loading Indicator -->
-                    <div id="loadingIndicator" class="loading-container mb-lg hidden">
+                    <div id="loadingIndicator" class="loading-container mb-lg mt-lg hidden">
                         <div class="spinner"></div>
                         <p class="text-base text-gray-700 font-medium">Analyzing audio...</p>
                     </div>
@@ -1118,6 +1160,16 @@
                         <button id="exportBtn" class="btn btn-primary">
                             Export Results as JSON
                         </button>
+                    </div>
+
+                    <!-- YouTube Player in Main Panel -->
+                    <div id="youtubeMainPlayerContainer" class="card card-padding-lg mb-lg hidden">
+                        <div class="section-header">
+                            <h2 class="heading-2">Video Player</h2>
+                        </div>
+                        <div class="youtube-player-container">
+                            <div id="youtubeMainPlayer"></div>
+                        </div>
                     </div>
 
                     <!-- Transcript -->
