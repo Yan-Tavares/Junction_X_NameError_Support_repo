@@ -1,0 +1,48 @@
+ensemble: 
+  ...
+
+models:
+  # ============================
+  # Sentiment Model Ensemble
+  # ============================
+  # Four specialized text classifiers for hate speech detection
+  # Each model has different strengths and weighting strategies
+  
+  # 1. HateXplain
+  base_sentiment:
+    class: BaseSentimentModel
+    args:
+      text_model_path: models/hatexplain-roberta-mini
+  
+  # 2. Toxicity Model - Conservative toxicity detection (reduces false positives)
+  toxicity:
+    class: ToxicityModel
+    args:
+      model_name: unitary/toxic-bert
+
+  # 3. Zero-Shot Extremism NLI - Zero-shot model for extremism detection
+  zero_shot_extremism:
+    class: ZeroShotExtremismNLI
+    args:
+      model_name: unitary/zero-shot-english
+
+  # 4. Heuristic Lexicon Model - Rule-based model for hate speech detection
+  heuristic_lexicon:
+    class: HeuristicLexiconModel
+    args:
+      lexicon_path: models/heuristic_lexicon.json
+
+  # ============================
+  # Dummy Models (for testing)
+  # ============================
+  # Uncomment to test ensemble behavior with dummy predictors
+  
+  # dummy_1:
+  #   class: DummyModel
+  #   args:
+  #     seed: 0
+  
+  # dummy_2:
+  #   class: DummyModel
+  #   args:
+  #     seed: 42

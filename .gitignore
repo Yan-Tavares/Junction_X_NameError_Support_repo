@@ -10,6 +10,8 @@ external/
 emotion_env/
 ravdess_raw/
 emotion_model/
+streamlit_app.py
+run_streamlit.sh
 
 # Python
 __pycache__/
@@ -26,6 +28,14 @@ ENV/
 
 # Environment variables
 .env
+
+# File types
+*.wav
+*.json
+*.pyc
+*.safetensors
+*.bin
+
 
 # File types
 *.wav

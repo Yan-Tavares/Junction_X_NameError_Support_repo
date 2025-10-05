@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     
     # Model Configuration
     WHISPER_MODEL_SIZE: str = "medium"  # tiny, base, small, medium, large
-    TEXT_MODEL_PATH: str = "cardiffnlp/twitter-roberta-base-hate-latest"
+    TEXT_MODEL_PATH: str = "martin-ha/toxic-comment-model"
     EMOTION_MODEL_PATH: str = "audeering/wav2vec2-large-robust-12-ft-emotion-msp-dim"
     
     # Feature Flags

@@ -22,29 +22,34 @@ echo ""
 echo "🔄 Activating virtual environment..."
 source venv/bin/activate
 
-echo "📥 Installing dependencies (this may take a few minutes)..."
-pip install --upgrade pip --quiet
-pip install -r requirements.txt
-echo "✅ Dependencies installed"
-
+# Check if requirements are installed
+if ! python -c "import streamlit" 2>/dev/null; then
+    echo "📥 Installing dependencies (this may take a few minutes)..."
+    pip install --upgrade pip --quiet
+    pip install -r requirements.txt
+    if [ $? -ne 0 ]; then
+        echo "❌ Failed to install dependencies"
+        exit 1
+    fi
+    echo "✅ Dependencies installed"
+else
+    echo "✅ Dependencies already installed"
+fi
 
 # Create .env file if it doesn't exist
 if [ ! -f ".env" ]; then
     echo ""
     echo "⚙️  Creating .env file..."
     cat > .env << EOF
-WHISPER_MODEL_SIZE=small
-TEXT_MODEL_PATH=cardiffnlp/twitter-roberta-base-hate-latest
-ENABLE_EMOTION_ANALYSIS=true
+# API Configuration
+API_HOST=0.0.0.0
+API_PORT=8000
+API_URL=http://localhost:8000
 
-# Performance
-FAST_MODE=false
+# Model Configuration
+WHISPER_MODEL_SIZE=medium
 CONFIDENCE_THRESHOLD=0.5
-
-# Audio Processing
-SAMPLE_RATE=16000
-PRE_EMPHASIS=0.97
-NOISE_REDUCTION=true
+MAX_AUDIO_LENGTH_SECONDS=600
 EOF
     echo "✅ .env file created"
 fi
@@ -53,9 +58,8 @@ echo ""
 echo "🎉 Setup complete!"
 echo ""
 echo "To start the application:"
-echo "  Option 1 (UI only):  ./run_streamlit.sh"
-echo "  Option 2 (Full):     ./run_api.sh  (in terminal 1)"
-echo "                       ./run_streamlit.sh  (in terminal 2)"
+echo "  Terminal 1: ./run_api.sh"
+echo "  Terminal 2: python run_frontend.py"
 echo ""
-echo "📚 See SETUP.md for detailed documentation"
+echo "Then open: http://localhost:8080"
 echo ""

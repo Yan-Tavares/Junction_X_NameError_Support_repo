@@ -15,7 +15,8 @@ import sys
 
 # Add parent directory to path for imports
 sys.path.append(str(Path(__file__).parent.parent.parent))
-from src.pipeline import VocalFirewallAnalyzer
+
+from src.pipeline.initialize import create_ensemble, load_config
 from src.config import settings
 
 # Initialize FastAPI app
@@ -60,6 +61,7 @@ class AnalysisResult(BaseModel):
     overall_label: str
     confidence: float
     segments: List[SegmentInfo]
+    hate_spans: List[SegmentInfo]
     emotion_analysis: Optional[EmotionAnalysis] = None
     flagged_count: int
     total_segments: int
@@ -70,7 +72,7 @@ class HealthResponse(BaseModel):
     models_loaded: bool
 
 # Global analyzer instance
-analyzer: Optional[VocalFirewallAnalyzer] = None
+analyzer = None
 
 @app.on_event("startup")
 async def load_models():
@@ -78,13 +80,9 @@ async def load_models():
     global analyzer
     
     try:
-        print("🚀 Initializing Vocal Firewall Analyzer...")
-        analyzer = VocalFirewallAnalyzer(
-            whisper_model_size=settings.WHISPER_MODEL_SIZE,
-            text_model_path=settings.TEXT_MODEL_PATH,
-            enable_emotion=settings.ENABLE_EMOTION_ANALYSIS,
-            fast_mode=settings.FAST_MODE
-        )
+        print("🚀 Initializing Ensemble Model...")
+        config = load_config()
+        analyzer = create_ensemble(config)
         print("✅ All models loaded successfully")
     except Exception as e:
         print(f"⚠️ Warning: Could not load models: {e}")
@@ -115,14 +113,14 @@ async def analyze_audio(file: UploadFile = File(...)):
     Analyze an audio file for extremist speech
     
     Args:
-        file: Audio file (wav, mp3, ogg, flac, m4a, webm)
+        file: Audio file (wav)
         
     Returns:
         AnalysisResult with transcript, labels, and timestamps
     """
     
     # Validate file type
-    allowed_extensions = {'.wav', '.mp3', '.ogg', '.flac', '.m4a', '.webm'}
+    allowed_extensions = {'.wav'}  #{'.wav', '.mp3', '.ogg', '.flac', '.m4a', '.webm'}
     
     if not file.filename:
         raise HTTPException(
@@ -161,6 +159,7 @@ async def analyze_audio(file: UploadFile = File(...)):
         
         raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
 
+
 def analyze_audio_file(audio_path: str) -> AnalysisResult:
     """
     Process audio file and return analysis results
@@ -177,21 +176,23 @@ def analyze_audio_file(audio_path: str) -> AnalysisResult:
     
     try:
         # Run full analysis pipeline
-        results = analyzer.analyze_audio(Path(audio_path))
+        # Ensemble.predict returns predictions array, then assemble_preds converts to dict
+        preds = analyzer.predict(audio_path)
+        results = analyzer.assemble_preds(preds)
         
         # Count flagged segments (hate or uncertain)
         flagged_segments = [
-            s for s in results["segments"]
+            s for s in results["hate_spans"]
             if s["label"] in ["hate", "uncertain"] and s["confidence"] > settings.CONFIDENCE_THRESHOLD
         ]
         
         # Determine overall label
-        hate_count = sum(1 for s in results["segments"] if s["label"] == "hate")
+        hate_count = sum(1 for s in results["hate_spans"] if s["label"] == "hate")
         
         if hate_count > 0:
             overall_label = "hate_detected"
             # Average confidence of hate segments
-            hate_confs = [s["confidence"] for s in results["segments"] if s["label"] == "hate"]
+            hate_confs = [s["confidence"] for s in results["hate_spans"] if s["label"] == "hate"]
             confidence = sum(hate_confs) / len(hate_confs) if hate_confs else 0.0
         elif len(flagged_segments) > 0:
             overall_label = "uncertain"
@@ -199,7 +200,7 @@ def analyze_audio_file(audio_path: str) -> AnalysisResult:
         else:
             overall_label = "safe"
             # Average confidence of non-hate segments
-            safe_confs = [s["confidence"] for s in results["segments"] if s["label"] == "non-hate"]
+            safe_confs = [s["confidence"] for s in results["hate_spans"] if s["label"] == "non-hate"]
             confidence = sum(safe_confs) / len(safe_confs) if safe_confs else 1.0
         
         # Format segments for response
@@ -211,7 +212,7 @@ def analyze_audio_file(audio_path: str) -> AnalysisResult:
                 label=s["label"],
                 confidence=s["confidence"]
             )
-            for s in results["segments"]
+            for s in results["hate_spans"]
         ]
         
         # Format emotion analysis if available
@@ -232,9 +233,10 @@ def analyze_audio_file(audio_path: str) -> AnalysisResult:
             overall_label=overall_label,
             confidence=float(confidence),
             segments=segment_infos,
+            hate_spans=segment_infos,
             emotion_analysis=emotion_analysis,
             flagged_count=len(flagged_segments),
-            total_segments=len(results["segments"])
+            total_segments=len(results["hate_spans"])
         )
         
     except Exception as e:
