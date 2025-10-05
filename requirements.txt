@@ -12,6 +12,8 @@ accelerate>=0.30.0
 faster-whisper==1.2.0
 librosa
 soundfile
+ollama  # Ollama Python client
+langchain-ollama  # LangChain Ollama integration for trustcall
 
 # Data & Analysis
 numpy
@@ -28,3 +30,4 @@ yt-dlp
 xgboost
 pydantic
 pydantic-settings
+trustcall
