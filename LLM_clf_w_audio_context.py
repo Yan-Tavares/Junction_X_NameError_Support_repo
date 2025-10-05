@@ -5,6 +5,44 @@ from transformers import AutoModelForAudioClassification, Wav2Vec2FeatureExtract
 from transformers import Wav2Vec2FeatureExtractor, Wav2Vec2ForSequenceClassification
 from faster_whisper import WhisperModel
 
+def transcribe_audio(model, file_path = 'data/first_hateful_speech.wav', word_timestamps = True, printing = False):
+    segments, info = model.transcribe(file_path, word_timestamps= word_timestamps)
+    # Each segment is an object and it has:
+        # id: segment number
+        # start: start time (seconds)
+        # end: end time (seconds)
+        # text: the transcribed text for that segment
+        # words: a list of word objects (if word_timestamps=True), each with:
+            # word: the word text
+            # start: word start time (seconds)
+            # end: word end time (seconds)
+            # info contains metadata, such as detected language
+    
+    # Convert generator to list to avoid exhaustion
+    segments_list = list(segments)
+
+    if printing:
+        print(f"Detected language: {info.language}\n")
+        print("Transcription with word-level timestamps:")
+
+        for segment in segments_list:
+            print(f"[Segment {segment.id}] {segment.start:.2f}s - {segment.end:.2f}s: {segment.text}")
+            if segment.words:
+                for word in segment.words:
+                    print(f"    {word.word} ({word.start:.2f}s - {word.end:.2f}s)")
+
+    return segments_list
+
+def create_segment_list(file_path):
+    print("Loading Whisper model...")
+    model = WhisperModel("base", device="cpu", compute_type="int8")
+    print("Transcribing audio...")
+
+    segments = transcribe_audio(model, file_path=file_path, printing=True)
+    segments_list = list(segments)
+
+    return segments_list
+
 def classify_intensity(intensity_model, signal, sr=16000):
 
     inputs = intensity_feature_extractor(signal,
@@ -46,43 +84,6 @@ def classify_emotions(emotion_model, signal, sr=16000):
     id2label = emotion_model.config.id2label
     return id2label[pred_id]
 
-def transcribe_audio(model, file_path = 'data/first_hateful_speech.wav', word_timestamps = True, printing = False):
-    segments, info = model.transcribe(file_path, word_timestamps= word_timestamps)
-    # Each segment is an object and it has:
-        # id: segment number
-        # start: start time (seconds)
-        # end: end time (seconds)
-        # text: the transcribed text for that segment
-        # words: a list of word objects (if word_timestamps=True), each with:
-            # word: the word text
-            # start: word start time (seconds)
-            # end: word end time (seconds)
-            # info contains metadata, such as detected language
-    
-    # Convert generator to list to avoid exhaustion
-    segments_list = list(segments)
-
-    if printing:
-        print(f"Detected language: {info.language}\n")
-        print("Transcription with word-level timestamps:")
-
-        for segment in segments_list:
-            print(f"[Segment {segment.id}] {segment.start:.2f}s - {segment.end:.2f}s: {segment.text}")
-            if segment.words:
-                for word in segment.words:
-                    print(f"    {word.word} ({word.start:.2f}s - {word.end:.2f}s)")
-
-    return segments_list
-
-def create_segment_list(file_path):
-    print("Loading Whisper model...")
-    model = WhisperModel("base", device="cpu", compute_type="int8")
-    print("Transcribing audio...")
-
-    segments = transcribe_audio(model, file_path=file_path, printing=True)
-    segments_list = list(segments)
-
-    return segments_list
 
 def vibe_check_segment(emotion_model, emotion_feature_extractor, intensity_model, intensity_feature_extractor, file_path, segment, sr=16000):
     # Load audio
@@ -93,39 +94,11 @@ def vibe_check_segment(emotion_model, emotion_feature_extractor, intensity_model
 
     return emotion, intensity
 
-
-# -------------------------
-# 1. Device
-# -------------------------
-if torch.backends.mps.is_available():
-    DEVICE = "mps"
-    print('MPS')
-elif torch.cuda.is_available():
-    DEVICE = "cuda"
-else:
-    DEVICE = "cpu"
-
-print(f"Using device: {DEVICE}")
-
-# -------------------------
-# 2. Load fine-tuned model
-# -------------------------
-MODEL_DIR = "./fine_tuned_emotion_model"
-emotion_model = AutoModelForAudioClassification.from_pretrained(MODEL_DIR).to(DEVICE)
-emotion_feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained(MODEL_DIR)
-
-
-model_name = "superb/wav2vec2-base-superb-er"
-intensity_model = Wav2Vec2ForSequenceClassification.from_pretrained(model_name).to(DEVICE)
-intensity_feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained(model_name)
-print("Intensity model loaded successfully!")
-
-
-
-def LLM_clf_w_audio_context(segments_list, file_path):
+def augment_segments(segments_list, file_path):
     
     emotion_results = []
     instensity_results = []
+    augmented_texts = {}
 
     for i, segment in enumerate(segments_list):
         print(f"Processing segment {i+1}/{len(segments_list)}...")
@@ -155,10 +128,42 @@ def LLM_clf_w_audio_context(segments_list, file_path):
         })
 
         # Add emotion and rounded intensity as a string to the segment text
-        segment.text += f" [Emotion: {emotion}, Intensity: {intensity:.1f}]"
+        augmented_text = segment.text + f" [Emotion: {emotion}, Intensity: {intensity:.1f}]"
+        augmented_texts[segment.id] = augmented_text
+    
+    # Save to json file
+    with open("data/augmented_texts.json", "w") as f:
+        import json
+        json.dump(augmented_texts, f, indent=4)
 
     print("Done classifying the audio file!")
-    return emotion_results, instensity_results, segments_list
+    return emotion_results, instensity_results, augmented_texts
+
+# -------------------------
+# 1. Device
+# -------------------------
+if torch.backends.mps.is_available():
+    DEVICE = "mps"
+    print('MPS')
+elif torch.cuda.is_available():
+    DEVICE = "cuda"
+else:
+    DEVICE = "cpu"
+
+print(f"Using device: {DEVICE}")
+
+# -------------------------
+# 2. Load fine-tuned model
+# -------------------------
+MODEL_DIR = "./fine_tuned_emotion_model"
+emotion_model = AutoModelForAudioClassification.from_pretrained(MODEL_DIR).to(DEVICE)
+emotion_feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained(MODEL_DIR)
+
+
+model_name = "superb/wav2vec2-base-superb-er"
+intensity_model = Wav2Vec2ForSequenceClassification.from_pretrained(model_name).to(DEVICE)
+intensity_feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained(model_name)
+print("Intensity model loaded successfully!")
 
 
 if __name__ == "__main__":
@@ -171,9 +176,10 @@ if __name__ == "__main__":
     segments_list = create_segment_list(file_path)
     print(f"Processing {len(segments_list)} segments...")
 
-    emotion_results, instensity_results, segments_list = LLM_clf_w_audio_context(segments_list, file_path)
+    emotion_results, instensity_results, augmented_segments = augment_segments(segments_list, file_path)
 
-    for i, (segment, emotion, intensity) in enumerate(zip(segments_list, emotion_results, instensity_results)):
-        print(f"\nSegment {segment.id}: {segment.text}")
+    for i, (segment, augmented_text, emotion, intensity) in enumerate(zip(segments_list, augmented_segments, emotion_results, instensity_results)):
+        print(f"\nSegment {segment.id}:")
+        print(f" Augmented Text: {augmented_text}")
         print(f" Emotion: {emotion['emotion']}")
         print(f" Intensity: {intensity['intensity']}")
