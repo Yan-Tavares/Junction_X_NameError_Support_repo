@@ -17,6 +17,9 @@ run_streamlit.sh
 __pycache__/
 *.pyc
 
+# macOS
+.DS_Store
+
 # Virtual environments
 venv/
 env/
@@ -35,12 +38,3 @@ ENV/
 *.pyc
 *.safetensors
 *.bin
-
-
-# File types
-*.wav
-*.json
-*.pyc
-*.safetensors
-*.bin
-
