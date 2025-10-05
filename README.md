@@ -38,25 +38,56 @@ python run_frontend.py
 ```
 Open browser to: http://localhost:8080
 
+**OR - Use CLI for Research:**
+```bash
+# Check API health
+./vfw health
+
+# Analyze single file
+./vfw analyze audio.wav -v
+
+# Screen training data directory
+./vfw screen ./training_data/
+
+# See full CLI documentation
+cat CLI_README.md
+```
+
 ## 🏗️ Architecture
 
 ```
-┌─────────────────┐
-│   Web Frontend  │ ← HTML/JS UI (Port 8080)
-└────────┬────────┘
-         │ REST API
-    ┌────▼─────┐
-    │ FastAPI  │ ← Backend Server (Port 8000)
-    │  Server  │
-    └────┬─────┘
-         │
-    ┌────▼────────────┐
-    │ ML Pipeline     │
-    │ 1. Whisper STT  │ ← Speech-to-Text
-    │ 2. Classifier   │ ← Content Classification
-    │ 3. Timestamps   │ ← Segment Extraction
-    └─────────────────┘
+┌─────────────────┐         ┌─────────────────┐
+│   Web Frontend  │         │   CLI Tool      │
+│  (Port 8080)    │         │  (Research)     │
+└────────┬────────┘         └────────┬────────┘
+         │                           │
+         └───────────┬───────────────┘
+                     │ REST API
+                ┌────▼─────┐
+                │ FastAPI  │ ← Backend Server (Port 8000)
+                │  Server  │
+                └────┬─────┘
+                     │
+                ┌────▼────────────┐
+                │ ML Pipeline     │
+                │ 1. Whisper STT  │ ← Speech-to-Text
+                │ 2. Classifier   │ ← Content Classification
+                │ 3. Timestamps   │ ← Segment Extraction
+                └─────────────────┘
 ```
+
+## 🎯 Two Interfaces, Two Audiences
+
+### 🌐 Web UI - For General Users
+- **Purpose**: Screen materials children may be exposed to
+- **Use cases**: Parents, educators, content moderators
+- **Features**: Drag & drop, visual results, easy to use
+
+### 🖥️ CLI - For Researchers
+- **Purpose**: Screen training data for speech models
+- **Use cases**: ML researchers, dataset curation, automation
+- **Features**: Batch processing, CSV/JSON export, filtering, reports
+- **Documentation**: See [CLI_README.md](CLI_README.md)
 
 ## 📂 Project Structure
 
@@ -68,8 +99,13 @@ Open browser to: http://localhost:8080
 ├── run_api.sh               # Launch API
 ├── requirements.txt         # Dependencies
 │
+├── vfw_cli.py               # CLI tool (main script)
+├── vfw                      # CLI wrapper script
+├── CLI_README.md            # CLI documentation
+│
 ├── src/
 │   ├── config.py            # Configuration
+│   ├── pipeline.py          # Analysis pipeline
 │   ├── api/
 │   │   └── main.py          # FastAPI backend
 │   └── models/
@@ -89,7 +125,9 @@ Open browser to: http://localhost:8080
 - `POST /analyze` - Analyze single audio file
 - `POST /analyze/batch` - Batch process multiple files
 
-API documentation: http://localhost:8000/docs
+**API documentation**: http://localhost:8000/docs
+
+**Access via CLI**: `./vfw --help`
 
 ## 🧪 Testing
 
@@ -97,4 +135,10 @@ API documentation: http://localhost:8000/docs
 # Test API with curl
 curl -X POST http://localhost:8000/analyze \
   -F "file=@path/to/audio.wav"
+
+# Test with CLI (recommended)
+./vfw analyze path/to/audio.wav -v
+
+# Test batch processing
+./vfw batch -d ./data/sample\ database/
 ```
