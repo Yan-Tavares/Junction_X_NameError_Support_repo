@@ -140,7 +140,7 @@ cat CLI_README.md
 ```
 
 ## Acknowledgment of the use of LLMs
-- LLMs for coding: Claude 4.5 Sonnet in Cursor and VS Code. Used for quick prototyping, productive quick edits with the tab feature, creating documentation, and refactors
+- LLMs for coding: Claude 4.5 Sonnet in Cursor and VS Code. Used for quick prototyping, productive quick edits with the tab feature, creating documentation, and refactors. We extensively reviewed all edits made by the LLMs and all of the main development as well as system design was done by the team.
 - LLMs for speech: Eleven Labs for voiceover of pitch video
 - LLMs for research: ChatGPT for suggestions of useful papers
 
