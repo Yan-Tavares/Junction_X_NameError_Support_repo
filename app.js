@@ -38,7 +38,7 @@ function handleFileSelect(event) {
         // Set up audio player
         const url = URL.createObjectURL(file);
         audioPlayer.src = url;
-        audioPlayerContainer.style.display = 'block';
+        audioPlayerContainer.classList.remove('hidden');
         
         // Enable analyze button
         analyzeBtn.disabled = false;
@@ -60,7 +60,7 @@ async function analyzeAudio() {
 
     // Show loading
     analyzeBtn.disabled = true;
-    loadingIndicator.style.display = 'block';
+    loadingIndicator.classList.remove('hidden');
 
     try {
         const formData = new FormData();
@@ -87,14 +87,14 @@ async function analyzeAudio() {
         console.error('Analysis error:', error);
     } finally {
         analyzeBtn.disabled = false;
-        loadingIndicator.style.display = 'none';
+        loadingIndicator.classList.add('hidden');
     }
 }
 
 // Display results
 function displayResults(results) {
-    welcomeMessage.style.display = 'none';
-    resultsContainer.style.display = 'block';
+    welcomeMessage.classList.add('hidden');
+    resultsContainer.classList.remove('hidden');
 
     // Overall result
     displayOverallResult(results);
@@ -107,10 +107,10 @@ function displayResults(results) {
     
     // Emotion analysis
     if (results.emotion_analysis && results.emotion_analysis.time_series) {
-        emotionContainer.style.display = 'block';
+        emotionContainer.classList.remove('hidden');
         displayEmotionAnalysis(results.emotion_analysis);
     } else {
-        emotionContainer.style.display = 'none';
+        emotionContainer.classList.add('hidden');
     }
 }
 
@@ -122,34 +122,31 @@ function displayOverallResult(results) {
     const flaggedCount = results.flagged_count || 0;
     const totalSegments = results.total_segments || 0;
 
-    let emoji, message, description, bgColor, borderColor;
+    let emoji, message, description, resultClass;
 
     if (label === 'safe') {
         emoji = '✅';
         message = 'No, this content is safe';
         description = 'No significant extremist speech detected.';
-        bgColor = 'var(--success-light)';
-        borderColor = 'var(--success)';
+        resultClass = 'result-box-safe';
     } else if (label === 'hate_detected') {
         emoji = '⚠️';
         message = 'Yes, there is!';
         description = 'Extremist or hate speech identified in audio.';
-        bgColor = 'var(--danger-light)';
-        borderColor = 'var(--danger)';
+        resultClass = 'result-box-danger';
     } else {
         emoji = '⚠️';
         message = "I'm not 100% certain";
         description = 'Some segments require review. Take a look at the transcript and see if you agree.';
-        bgColor = 'var(--warning-light)';
-        borderColor = 'var(--warning)';
+        resultClass = 'result-box-warning';
     }
 
     overallResult.innerHTML = `
-        <div style="text-align: center; background: ${bgColor}; border: 3px solid ${borderColor}; border-radius: 12px; padding: 32px;">
-            <div style="font-size: 64px; margin-bottom: 16px;">${emoji}</div>
-            <h2 style="font-size: 2rem; font-weight: 700; color: var(--gray-900); margin-bottom: 12px;">${message}</h2>
-            <p style="font-size: 1.125rem; color: var(--gray-700); margin-bottom: 24px;">${description}</p>
-            <div style="display: flex; justify-content: center; gap: 40px; font-size: 14px; color: var(--gray-600);">
+        <div class="result-box ${resultClass}">
+            <div class="result-emoji">${emoji}</div>
+            <h2 class="result-title">${message}</h2>
+            <p class="result-description">${description}</p>
+            <div class="result-stats">
                 <div><strong>Confidence:</strong> ${(confidence * 100).toFixed(1)}%</div>
                 <div><strong>Segments:</strong> ${flaggedCount}/${totalSegments} flagged</div>
             </div>
@@ -163,7 +160,7 @@ function displayTranscript(results) {
     const segments = results.segments || [];
 
     if (segments.length === 0) {
-        transcriptDiv.innerHTML = '<p class="text-gray-500">No transcript available</p>';
+        transcriptDiv.innerHTML = '<p class="empty-message">No transcript available</p>';
         return;
     }
 
@@ -204,7 +201,7 @@ function displaySegments(results) {
     );
 
     if (displaySegments.length === 0) {
-        segmentsList.innerHTML = '<p style="color: var(--gray-600); padding: 20px; text-align: center; background: var(--gray-50); border-radius: 8px;">✅ No segments exceeded the threshold</p>';
+        segmentsList.innerHTML = '<p class="empty-message">✅ No segments exceeded the threshold</p>';
         return;
     }
 
@@ -215,39 +212,39 @@ function displaySegments(results) {
         const end = segment.end || 0;
         const text = segment.text || '';
 
-        let icon, borderColor, badgeClass;
+        let icon, segmentClass, badgeClass;
         if (label === 'hate') {
             icon = '🚨';
-            borderColor = 'var(--danger)';
+            segmentClass = 'segment-detail-hate';
             badgeClass = 'badge-danger';
         } else if (label === 'uncertain') {
             icon = '⚠️';
-            borderColor = 'var(--warning)';
+            segmentClass = 'segment-detail-uncertain';
             badgeClass = 'badge-warning';
         } else {
             icon = 'ℹ️';
-            borderColor = 'var(--primary)';
+            segmentClass = 'segment-detail-safe';
             badgeClass = 'badge-success';
         }
 
         return `
-            <details style="border: 2px solid ${borderColor}; border-radius: 10px; margin-bottom: 16px; overflow: hidden; background: white;">
-                <summary style="padding: 16px; font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 8px; background: var(--gray-50);">
+            <details class="segment-detail ${segmentClass}">
+                <summary class="segment-summary">
                     <span>${icon}</span>
-                    <span style="flex: 1;">Segment ${i+1}: ${start.toFixed(1)}s - ${end.toFixed(1)}s</span>
+                    <span class="segment-summary-flex">Segment ${i+1}: ${start.toFixed(1)}s - ${end.toFixed(1)}s</span>
                     <span class="badge ${badgeClass}">${label}</span>
                 </summary>
-                <div style="padding: 20px; background: white;">
-                    <p style="margin-bottom: 12px; color: var(--gray-700); line-height: 1.6;">
-                        <strong style="color: var(--gray-900);">Text:</strong> ${escapeHtml(text)}
+                <div class="segment-content">
+                    <p class="segment-text">
+                        <strong class="label-strong">Text:</strong> ${escapeHtml(text)}
                     </p>
-                    <p style="margin-bottom: 12px;">
-                        <strong style="color: var(--gray-900);">Label:</strong> 
+                    <p class="segment-label-row">
+                        <strong class="label-strong">Label:</strong> 
                         <span class="badge ${badgeClass}">${label}</span>
                     </p>
-                    <p style="margin-bottom: 8px;">
-                        <strong style="color: var(--gray-900);">Confidence:</strong> 
-                        <span style="color: var(--primary); font-weight: 600;">${(confidence * 100).toFixed(1)}%</span>
+                    <p class="segment-confidence-row">
+                        <strong class="label-strong">Confidence:</strong> 
+                        <span class="confidence-value">${(confidence * 100).toFixed(1)}%</span>
                     </p>
                     <div class="progress-bar">
                         <div class="progress-bar-fill" style="width: ${confidence * 100}%"></div>
@@ -260,17 +257,14 @@ function displaySegments(results) {
 
 // Display emotion analysis
 function displayEmotionAnalysis(emotionAnalysis) {
-    const emotionContainer = document.getElementById('emotionContainer');
     const emotionChart = document.getElementById('emotionChart');
     const emotionPeaks = document.getElementById('emotionPeaks');
-
-    emotionContainer.classList.remove('hidden');
 
     const timeSeries = emotionAnalysis.time_series || [];
     const peaks = emotionAnalysis.peaks || [];
 
     if (timeSeries.length === 0) {
-        emotionChart.innerHTML = '<p class="text-gray-600">No emotion data available</p>';
+        emotionChart.innerHTML = '<p class="empty-message">No emotion data available</p>';
         return;
     }
 
@@ -338,16 +332,16 @@ function displayEmotionAnalysis(emotionAnalysis) {
     // Display peaks
     if (peaks.length > 0) {
         emotionPeaks.innerHTML = `
-            <h3 style="font-weight: 700; color: var(--gray-900); margin-bottom: 16px; font-size: 1.25rem;">🔔 Detected Emotion Peaks:</h3>
+            <h3 class="heading-3 text-gray-900 mb-md">🔔 Detected Emotion Peaks:</h3>
             ${peaks.map((peak, i) => `
-                <details style="border: 2px solid var(--gray-300); border-radius: 10px; margin-bottom: 12px; overflow: hidden; background: white;">
-                    <summary style="padding: 14px 16px; font-weight: 600; font-size: 14px; background: var(--gray-50);">
+                <details class="emotion-peak-detail">
+                    <summary class="emotion-peak-summary">
                         Peak ${i+1} at ${peak.time.toFixed(1)}s (Arousal: ${peak.arousal.toFixed(2)})
                     </summary>
-                    <div style="padding: 16px; background: white;">
-                        <p style="margin-bottom: 8px;"><strong style="color: var(--gray-900);">Arousal:</strong> <span style="color: var(--primary);">${peak.arousal.toFixed(2)}</span></p>
-                        ${peak.coincides_with ? `<p style="margin-bottom: 8px;"><strong style="color: var(--gray-900);">Coincides with:</strong> <span class="badge badge-warning">${peak.coincides_with}</span></p>` : ''}
-                        ${peak.text && peak.text !== 'N/A' ? `<p style="margin-bottom: 0; color: var(--gray-700); line-height: 1.6;"><strong style="color: var(--gray-900);">Text:</strong> ${escapeHtml(peak.text)}</p>` : ''}
+                    <div class="emotion-peak-content">
+                        <p class="emotion-peak-row"><strong class="label-strong">Arousal:</strong> <span class="confidence-value">${peak.arousal.toFixed(2)}</span></p>
+                        ${peak.coincides_with ? `<p class="emotion-peak-row"><strong class="label-strong">Coincides with:</strong> <span class="badge badge-warning">${peak.coincides_with}</span></p>` : ''}
+                        ${peak.text && peak.text !== 'N/A' ? `<p class="emotion-peak-text"><strong class="label-strong">Text:</strong> ${escapeHtml(peak.text)}</p>` : ''}
                     </div>
                 </details>
             `).join('')}
