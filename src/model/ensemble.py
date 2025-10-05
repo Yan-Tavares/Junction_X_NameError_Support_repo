@@ -1,6 +1,14 @@
 import numpy as np
 import torch
-from faster_whisper import WhisperModel
+from pathlib import Path
+
+# Import pipeline modules
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from pipeline.preprocessing import preprocess_audio
+from pipeline.transcription import AudioTranscriber, extract_timestamps
+from pipeline.postprocessing import ResultAssembler, ensemble_predictions, validate_predictions
 
 
 class Ensemble:
@@ -12,73 +20,107 @@ class Ensemble:
         
         Args:
             models: List of model instances that have a predict method
+            whisper_size: Size of Whisper model (default: "medium")
         """
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.transcriber = WhisperModel(
-            whisper_size,
-            device=self.device,
-            compute_type=("float16" if torch.cuda.is_available() else "int8"),
-            download_root=None
-        )
+        
+        # Initialize transcriber using pipeline module
+        self.transcriber = AudioTranscriber(model_size=whisper_size, device=self.device)
+        
+        # Initialize result assembler
+        self.result_assembler = ResultAssembler()
+        
         self.models = models
 
-        # initialize ensemble weights and bias
+        # Initialize ensemble weights and bias
         self.weights = np.ones(len(self.models))
         self.bias = 0.0
 
-    
-    def get_audio_from_file(self, filepath):
-        """
-        This function should load the audio data from a file. 
-        Currently, it is used for all models in the population.
-        """
-        raise NotImplementedError()
+        # Label mapping (for backwards compatibility)
+        self.label_map = self.result_assembler.label_map
 
 
-    def split_audio(self, audio):
-        """"
-        This function should split the loaded audio into chunks, which are the same for all models. 
-        """
-        raise NotImplementedError()
-    
-
-    def convert_to_text(self, split_audio):
-        """
-        This function should use Whisper to convert the audio into text. 
-        If possible, the timestamps of the text and audio fragments should match.
-        """
-        raise NotImplementedError()
-    
 
     def predict(self, path_to_audio):
         """Ensemble predictions from all models.
         
         Args:
-            audio_sample: Audio data to process
+            path_to_audio: Path to audio file to process
             
         Returns:
-            List of timestamps after ensembling
+            numpy.ndarray: Ensemble predictions (n_segments, n_labels)
         """
-        audio = get_audio_from_file(path_to_audio)
-
-        split_audio = split_audio(audio)
-        split_text = get_text_from_audio(split_audio)
-        assert len(split_text) == len(split_audio)
-
-        predictions = np.empty((len(self.models), len(split_audio), len(self.labels)))
+        self.audio_path = path_to_audio
         
-        # Collect predictions from all models
+        # Step 1: Preprocess audio using pipeline module
+        processed_audio = preprocess_audio(path_to_audio)
+        
+        # Step 2: Transcribe and get segments using pipeline module
+        full_transcript, segments = self.transcriber.transcribe(processed_audio)
+        
+        # Step 3: Extract timestamps and texts
+        timestamps = extract_timestamps(segments)
+        
+        self.transcript = full_transcript
+        self.text_samples = [seg["text"] for seg in segments]
+        self.timestamps = timestamps
+        self.segments = segments  # Store for audio models if needed
+
+        if not self.text_samples:
+            print("⚠️ No text segments found, returning empty predictions")
+            return np.zeros((0, len(self.label_map)))
+
+        # Step 4: Run each model
+        model_predictions = np.empty((len(self.models), len(self.text_samples), len(self.label_map)))
+        
         for i, model in enumerate(self.models):
-
             if model.input_type == "audio":
-                pred = model.predict(split_audio)
-
+                # For audio models, pass segment info
+                pred = model.predict(segments)
             elif model.input_type == "text":
-                pred = model.predict(split_text)
+                # For text models, pass just the text
+                pred = model.predict(self.text_samples)
+            else:
+                print(f"⚠️ Unknown input type for model {i}: {model.input_type}")
+                pred = np.ones((len(self.text_samples), len(self.label_map))) / len(self.label_map)
             
-            predictions[i] = pred
+            # Validate prediction shape using pipeline module
+            expected_shape = (len(self.text_samples), len(self.label_map))
+            try:
+                validate_predictions(pred, expected_shape)
+            except ValueError as e:
+                print(f"⚠️ Model {i} returned shape {pred.shape}, expected {expected_shape}")
+                print(f"   Model type: {model.__class__.__name__}, input_type: {model.input_type}")
+                raise
+            
+            model_predictions[i] = pred
 
-        ensembled_preds = np.average(predictions, axis=0, weights=self.weights)
-        ensembled_preds += self.bias
+        # Step 5: Ensemble predictions using pipeline module
+        ensembled_preds = ensemble_predictions(model_predictions, weights=self.weights, bias=self.bias)
 
         return ensembled_preds 
+
+
+    def assemble_preds(self, preds):
+        """
+        Assembles an array of predictions (shape (n_segments, n_labels)) into a dictionary 
+        compatible with the API format.
+        
+        Args:
+            preds: numpy array of shape (n_segments, n_labels) where n_labels=3
+                   [p_normal, p_offensive, p_extremist]
+        
+        Returns:
+            dict: Dictionary with keys:
+                - audio_path: str
+                - transcript: str
+                - hate_spans: list of dicts with start, end, text, label, confidence
+                - emotion_analysis: None (placeholder for future)
+        """
+        # Use pipeline module for result assembly
+        return self.result_assembler.assemble_predictions(
+            predictions=preds,
+            timestamps=self.timestamps,
+            text_samples=self.text_samples,
+            audio_path=self.audio_path
+        )
