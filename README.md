@@ -96,21 +96,44 @@ cat CLI_README.md
 ├── index.html               # Web UI
 ├── app.js                   # Frontend logic
 ├── run_frontend.py          # Frontend server
-├── run_api.sh               # Launch API
+├── streamlit_app.py         # Streamlit UI
 ├── requirements.txt         # Dependencies
+├── ensemble_config.yaml     # Model configuration
+├── quickstart.sh            # Setup script (Linux/Mac)
+├── run_api.sh               # Launch API
+├── run_streamlit.sh         # Launch UI (legacy)
+├── SETUP.md                 # Detailed setup guide
 │
 ├── vfw_cli.py               # CLI tool (main script)
 ├── vfw                      # CLI wrapper script
 ├── CLI_README.md            # CLI documentation
+├── CLI_EXAMPLES.md          # CLI usage examples
 │
-├── src/
-│   ├── config.py            # Configuration
-│   ├── pipeline.py          # Analysis pipeline
-│   ├── api/
-│   │   └── main.py          # FastAPI backend
-│   └── models/
-│       ├── classic_ML_clf.py
-│       └── MLP_clf_custom_structure.py
+├── src/                     # Source code
+│   ├── config.py            # Application settings
+│   ├── __init__.py
+│   │
+│   ├── api/                 # REST API
+│   │   ├── main.py          # FastAPI endpoints
+│   │   └── __init__.py
+│   │
+│   ├── model/               # ML Models
+│   │   ├── ensemble.py      # Ensemble orchestrator
+│   │   ├── ola1.py          # SentimentModel (RoBERTa)
+│   │   ├── dummy.py         # Test model (dev only)
+│   │   ├── sentiment_base.py # Base model class
+│   │   ├── vibechecker.py   # Audio prosody (stub)
+│   │   ├── run_batch.py     # Batch processing
+│   │   ├── classic_ML_clf.py
+│   │   ├── MLP_clf_custom_structure.py
+│   │   └── __init__.py
+│   │
+│   └── pipeline/            # Processing Pipeline
+│       ├── preprocessing.py # Audio preprocessing
+│       ├── transcription.py # Speech-to-text
+│       ├── postprocessing.py # Result assembly
+│       ├── initialize.py   # Model initialization
+│       └── __init__.py
 │
 ├── data/
 │   └── sample database/     # Test audio files

@@ -1,6 +1,9 @@
 """
 This module contains the base model class. Please use this as parent class when implementing new models and implement all the missing functions.
 """
+import numpy as np
+
+LABELS = ["extremist", "potentially_extremist", "non_extremist"]
 
 class BaseSentimentModel:
     """
@@ -15,6 +18,7 @@ class BaseSentimentModel:
         - __init__
         - predict
         """
+        self.labels = LABELS
         self.input_type = "text"
         raise NotImplementedError()
 
@@ -29,3 +33,13 @@ class BaseSentimentModel:
         """
         raise NotImplementedError()
     
+
+def to_prob3(x):
+    """Ensure output is (n,3) probs."""
+    x = np.asarray(x, dtype=np.float32)
+    if x.ndim == 1: x = x[None, :]
+    # softmax if not already probabilities
+    ex = np.exp(x - x.max(axis=1, keepdims=True))
+    p = ex / ex.sum(axis=1, keepdims=True)
+    # If shape != 3 you must map externally.
+    return p
