@@ -33,7 +33,7 @@ class Ensemble:
 
         # Initialize ensemble weights and bias
         self.weights = np.ones(len(self.models))
-        self.bias = 0.0
+        self.bias = [0.0, 0.0, 0.0]
 
         # Label mapping (for backwards compatibility)
         self.label_map = self.result_assembler.label_map

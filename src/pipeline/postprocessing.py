@@ -94,7 +94,7 @@ class ResultAssembler:
         return results
 
 
-def ensemble_predictions(model_predictions, weights=None, bias=0.0):
+def ensemble_predictions(model_predictions, weights=None, bias=[0.0, 0.0, 0.0]):
     """
     Combine predictions from multiple models using weighted averaging.
     
@@ -111,7 +111,7 @@ def ensemble_predictions(model_predictions, weights=None, bias=0.0):
     
     # Weighted average
     ensembled_preds = np.average(model_predictions, axis=0, weights=weights)
-    ensembled_preds += bias
+    ensembled_preds += np.array(bias)
     
     # Ensure probabilities are non-negative and sum to 1
     ensembled_preds = np.maximum(0, ensembled_preds)
