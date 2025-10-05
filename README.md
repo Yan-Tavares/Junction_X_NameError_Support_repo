@@ -96,12 +96,10 @@ cat CLI_README.md
 ├── index.html               # Web UI
 ├── app.js                   # Frontend logic
 ├── run_frontend.py          # Frontend server
-├── streamlit_app.py         # Streamlit UI
 ├── requirements.txt         # Dependencies
 ├── ensemble_config.yaml     # Model configuration
 ├── quickstart.sh            # Setup script (Linux/Mac)
 ├── run_api.sh               # Launch API
-├── run_streamlit.sh         # Launch UI (legacy)
 ├── SETUP.md                 # Detailed setup guide
 │
 ├── vfw_cli.py               # CLI tool (main script)
@@ -119,27 +117,32 @@ cat CLI_README.md
 │   │
 │   ├── model/               # ML Models
 │   │   ├── ensemble.py      # Ensemble orchestrator
-│   │   ├── ola1.py          # SentimentModel (RoBERTa)
+│   │   ├── text_models.py   # Text classification models
 │   │   ├── dummy.py         # Test model (dev only)
 │   │   ├── sentiment_base.py # Base model class
-│   │   ├── vibechecker.py   # Audio prosody (stub)
-│   │   ├── run_batch.py     # Batch processing
-│   │   ├── classic_ML_clf.py
-│   │   ├── MLP_clf_custom_structure.py
+│   │   └── vibechecker.py   # Audio prosody analysis
+│   │
+│   ├── pipeline/            # Processing Pipeline
+│   │   ├── preprocessing.py # Audio preprocessing
+│   │   ├── transcription.py # Speech-to-text
+│   │   ├── postprocessing.py # Result assembly
+│   │   ├── initialize.py    # Model initialization
 │   │   └── __init__.py
 │   │
-│   └── pipeline/            # Processing Pipeline
-│       ├── preprocessing.py # Audio preprocessing
-│       ├── transcription.py # Speech-to-text
-│       ├── postprocessing.py # Result assembly
-│       ├── initialize.py   # Model initialization
-│       └── __init__.py
+│   └── testing/             # Test utilities
+|
+├── models/                  # Saved model weights
 │
-├── data/
-│   └── sample database/     # Test audio files
+├── finetune_ensemble.py     # Model fine-tuning
+├── segment_augmentation.py  # Data augmentation
 │
 └── temp/                    # Temporary uploads
 ```
+
+## Acknowledgment of the use of LLMs
+- LLMs for coding: Claude 4.5 Sonnet in Cursor and VS Code. Used for quick prototyping, productive quick edits with the tab feature, creating documentation, and refactors
+- LLMs for speech: Eleven Labs for voiceover of pitch video
+- LLMs for research: ChatGPT for suggestions of useful papers
 
 ## 🌐 API Endpoints
 
