@@ -42,12 +42,12 @@ class ToxicityModel(BaseSentimentModel):
     high toxicity -> lift 'potentially'; extreme toxicity + extreme lexicon (from analyzer) -> 'extremist'.
     For pure text-only, we map by thresholds.
     """
-    def __init__(self, model_name="unitary/toxic-bert", device=None):
+    def __init__(self, model_path="unitary/toxic-bert", device=None):
         super().__init__()
         self.input_type = "text"
         self.labels = LABELS
         self.device = 0 if (device in (0, "cuda") or torch.cuda.is_available()) else -1
-        self.pipe = pipeline("text-classification", model=model_name, device=self.device, truncation=True)
+        self.pipe = pipeline("text-classification", model=model_path, device=self.device, truncation=True)
     
     def predict(self, texts):
         # returns [{'label': 'toxic', 'score': p}] or multi-label depending on model; standardize:
@@ -56,31 +56,32 @@ class ToxicityModel(BaseSentimentModel):
             out = self.pipe(t)
             if isinstance(out, list): out = out[0]
             tox = float(out["score"]) if "score" in out else float(out.get("toxic", 0.0))
-            # heuristic mapping:
+            # heuristic mapping to [non_extremist, potentially_extremist, extremist]:
             if tox >= 0.8:
-                p = [0.45, 0.45, 0.10]
+                p = [0.10, 0.45, 0.45]  # High toxicity -> extremist
             elif tox >= 0.5:
-                p = [0.20, 0.60, 0.20]
+                p = [0.20, 0.60, 0.20]  # Moderate toxicity -> potentially
             elif tox >= 0.2:
-                p = [0.07, 0.28, 0.65]
+                p = [0.65, 0.28, 0.07]  # Slight toxicity -> mostly non
             else:
-                p = [0.03, 0.12, 0.85]
+                p = [0.85, 0.12, 0.03]  # Non-toxic -> non_extremist
             probs.append(p)
         return np.asarray(probs, dtype=np.float32)
 
 
 class ZeroShotExtremismNLI(BaseSentimentModel):
-    def __init__(self, model_name="facebook/bart-large-mnli", device=None):
+    def __init__(self, model_path="facebook/bart-large-mnli", device=None):
         super().__init__()
         self.input_type = "text"
         self.labels = LABELS
         self.device = 0 if (device in (0, "cuda") or torch.cuda.is_available()) else -1
-        self.pipe = pipeline("zero-shot-classification", model=model_name, device=self.device)
+        self.pipe = pipeline("zero-shot-classification", model=model_path, device=self.device)
 
+        # Candidate labels must match LABELS order: [non_extremist, potentially_extremist, extremist]
         self.candidate_labels = [
-            "the text supports or praises extremist ideology or organizations",
+            "the text clearly does not support extremist ideology",
             "the text may suggest potential extremist leanings or borderline propaganda",
-            "the text clearly does not support extremist ideology"
+            "the text supports or praises extremist ideology or organizations"
         ]
         # map to LABELS order:
         self.map_idx = [0,1,2]
@@ -112,6 +113,7 @@ class HeuristicLexiconModel(BaseSentimentModel):
         }
 
     def predict(self, texts):
+        # Returns [non_extremist, potentially_extremist, extremist]
         P = []
         for t in texts:
             t_low = t.lower()
@@ -119,13 +121,14 @@ class HeuristicLexiconModel(BaseSentimentModel):
             for pat, w in self.lex.items():
                 if __import__("re").search(pat, t_low):
                     score += w
+            # Map lexicon score to probabilities [non, potentially, extremist]
             if score >= 2.0:
-                p = [0.65, 0.30, 0.05]
+                p = [0.05, 0.30, 0.65]  # High score -> extremist
             elif score >= 1.0:
-                p = [0.30, 0.55, 0.15]
+                p = [0.15, 0.55, 0.30]  # Medium score -> potentially
             elif score >= 0.4:
-                p = [0.10, 0.35, 0.55]
+                p = [0.55, 0.35, 0.10]  # Low score -> mix
             else:
-                p = [0.05, 0.10, 0.85]
+                p = [0.85, 0.10, 0.05]  # No match -> non_extremist
             P.append(p)
         return np.asarray(P, dtype=np.float32)
