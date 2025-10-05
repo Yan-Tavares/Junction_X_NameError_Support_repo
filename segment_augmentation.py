@@ -259,10 +259,9 @@ print("Intensity model loaded successfully!")
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        sys.exit(1)
+    
+    file_path = 'data/youtube_audio.wav'
 
-    file_path = sys.argv[1]
     print(f"🎤 Prediction for {file_path}:")
 
     segments_list = create_segment_list(file_path)
