@@ -214,7 +214,7 @@ with col1:
                     else:
                         # API-based analysis
                         files = {"file": (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type)}
-                        response = requests.post(f"{api_url}/analyze", files=files, timeout=300)
+                        response = requests.post(f"{api_url}/analyze", files=files, timeout=900)
                         
                         if response.status_code == 200:
                             st.session_state.analysis_results = response.json()

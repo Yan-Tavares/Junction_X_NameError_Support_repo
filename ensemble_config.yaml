@@ -1,0 +1,37 @@
+ensemble: 
+  ...
+
+models:
+  # Advanced Models / Format: unique_key: {class: ModelClassName, args: {...}}
+  
+  # Primary hate speech classifier (fine-tuned RoBERTa)
+  sentiment_model_1:
+    class: SentimentModel
+    args:
+      text_model_path: cardiffnlp/twitter-roberta-base-hate-latest
+  
+  # Dummy models for testing (can be removed)
+  # model_1:
+  #   class: DummyModel
+  #   args:
+  #     seed: 0
+
+  # model_2:
+  #   class: DummyModel
+  #   args:
+  #     seed: 42
+
+  # - BaseSentimentModel:
+  #   model_path: models/Sentiment-Analysis/model1/
+
+  # BaseSentimentModel:
+  #   model_path: models/Sentiment-Analysis/model2/
+
+  # - BaseSentimentModel:
+  #     model_path: models/Sentiment-Analysis/model3/
+
+  # - BaseSentimentModel:
+  #     model_path: models/Sentiment-Analysis/model4/
+
+  # - VibeCheckerModel: 
+  #     model_path: models/VibeChecker/

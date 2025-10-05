@@ -35,8 +35,7 @@ chmod +x run_streamlit.sh
 # or directly:
 streamlit run streamlit_app.py
 ```
-
-Open browser to: http://localhost:8501
+🌐 Open browser to: **http://localhost:8501**
 
 #### Option B: Full Stack (API + UI)
 
@@ -47,8 +46,7 @@ chmod +x run_api.sh
 # or directly:
 python -m uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --reload
 ```
-
-API docs available at: http://localhost:8000/docs
+📚 API docs: **http://localhost:8000/docs**
 
 **Terminal 2 - Run Streamlit:**
 ```bash
@@ -78,20 +76,40 @@ API docs available at: http://localhost:8000/docs
 ## 📂 Project Structure
 
 ```
-.
-├── streamlit_app.py          # Streamlit UI
-├── requirements.txt          # Dependencies
-├── SETUP.md                  # Detailed setup guide
-├── run_streamlit.sh         # Launch UI
-├── run_api.sh               # Launch API
+vocal-firewall/
 │
-├── src/
-│   ├── config.py            # Configuration
-│   ├── api/
-│   │   └── main.py          # FastAPI backend
-│   └── models/
-│       ├── classic_ML_clf.py
-│       └── MLP_clf_custom_structure.py
+├── 📄 streamlit_app.py          # Streamlit UI application
+├── 📄 requirements.txt          # Python dependencies
+├── 📄 ensemble_config.yaml      # Model configuration
+├── 📄 quickstart.sh             # Setup script (Linux/Mac)
+├── 📄 run_api.sh                # API launcher (Linux/Mac)
+├── 📄 run_streamlit.sh          # UI launcher (Linux/Mac)
+├── 📄 README.md                 # This file
+├── 📄 REFACTORING_SUMMARY.md    # Refactoring documentation
+│
+├── 📁 src/                      # Source code
+│   ├── 📄 config.py             # Application settings
+│   ├── 📄 __init__.py
+│   │
+│   ├── 📁 api/                  # REST API
+│   │   ├── 📄 main.py           # FastAPI endpoints
+│   │   └── 📄 __init__.py
+│   │
+│   ├── 📁 model/                # ML Models
+│   │   ├── 📄 ensemble.py       # Ensemble orchestrator
+│   │   ├── 📄 ola1.py           # SentimentModel (RoBERTa)
+│   │   ├── 📄 dummy.py          # Test model (dev only)
+│   │   ├── 📄 sentiment_base.py # Base model class
+│   │   ├── 📄 vibechecker.py    # Audio prosody (stub)
+│   │   ├── 📄 run_batch.py      # Batch processing
+│   │   └── 📄 __init__.py
+│   │
+│   └── 📁 pipeline/             # Processing Pipeline (NEW!)
+│       ├── 📄 preprocessing.py  # Audio preprocessing
+│       ├── 📄 transcription.py  # Speech-to-text
+│       ├── 📄 postprocessing.py # Result assembly
+│       ├── 📄 initialize.py     # Model initialization
+│       └── 📄 __init__.py
 │
 ├── data/
 │   └── sample database/     # Test audio files

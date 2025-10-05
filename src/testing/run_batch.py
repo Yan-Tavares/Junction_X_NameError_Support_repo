@@ -39,7 +39,7 @@ except Exception:
 # If we run locally, import the analyzer
 try:
     # Use debug analyzer for fast testing
-    from ..testing.debug_analyzer import DebugAnalyzer as UnifiedAnalyzer
+    from .debug_analyzer import DebugAnalyzer as UnifiedAnalyzer
     print("📋 Using Debug Analyzer (fast mode)")
 except Exception:
     try:

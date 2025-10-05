@@ -13,11 +13,10 @@ import os
 from pathlib import Path
 import sys
 
-
-
 # Add parent directory to path for imports
 sys.path.append(str(Path(__file__).parent.parent.parent))
-from src.pipeline import VocalFirewallAnalyzer
+
+from src.pipeline.initialize import create_ensemble, load_config
 from src.config import settings
 
 # Initialize FastAPI app
@@ -26,12 +25,6 @@ app = FastAPI(
     description="API for detecting extremist speech in audio files",
     version="0.1.0"
 )
-
-import subprocess
-
-# Payload models
-class UrlPayload(BaseModel):
-    url: str
 
 # CORS middleware for frontend access
 app.add_middleware(
@@ -79,7 +72,7 @@ class HealthResponse(BaseModel):
     models_loaded: bool
 
 # Global analyzer instance
-analyzer: Optional[VocalFirewallAnalyzer] = None
+analyzer = None
 
 @app.on_event("startup")
 async def load_models():
@@ -87,13 +80,9 @@ async def load_models():
     global analyzer
     
     try:
-        print("🚀 Initializing Vocal Firewall Analyzer...")
-        analyzer = VocalFirewallAnalyzer(
-            whisper_model_size=settings.WHISPER_MODEL_SIZE,
-            text_model_path=settings.TEXT_MODEL_PATH,
-            enable_emotion=settings.ENABLE_EMOTION_ANALYSIS,
-            fast_mode=settings.FAST_MODE
-        )
+        print("🚀 Initializing Ensemble Model...")
+        config = load_config()
+        analyzer = create_ensemble(config)
         print("✅ All models loaded successfully")
     except Exception as e:
         print(f"⚠️ Warning: Could not load models: {e}")
@@ -124,14 +113,14 @@ async def analyze_audio(file: UploadFile = File(...)):
     Analyze an audio file for extremist speech
     
     Args:
-        file: Audio file (wav, mp3, ogg, flac, m4a, webm)
+        file: Audio file (wav)
         
     Returns:
         AnalysisResult with transcript, labels, and timestamps
     """
     
     # Validate file type
-    allowed_extensions = {'.wav', '.mp3', '.ogg', '.flac', '.m4a', '.webm'}
+    allowed_extensions = {'.wav'}  #{'.wav', '.mp3', '.ogg', '.flac', '.m4a', '.webm'}
     
     if not file.filename:
         raise HTTPException(
@@ -170,6 +159,7 @@ async def analyze_audio(file: UploadFile = File(...)):
         
         raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
 
+
 def analyze_audio_file(audio_path: str) -> AnalysisResult:
     """
     Process audio file and return analysis results
@@ -186,7 +176,9 @@ def analyze_audio_file(audio_path: str) -> AnalysisResult:
     
     try:
         # Run full analysis pipeline
-        results = analyzer.analyze_audio(Path(audio_path))
+        # Ensemble.predict returns predictions array, then assemble_preds converts to dict
+        preds = analyzer.predict(audio_path)
+        results = analyzer.assemble_preds(preds)
         
         # Count flagged segments (hate or uncertain)
         flagged_segments = [
@@ -273,48 +265,6 @@ async def analyze_batch(files: List[UploadFile] = File(...)):
             })
     
     return {"results": results}
-
-@app.post("/analyze_url")
-async def analyze_url(payload: UrlPayload):
-    """
-    Analyze audio from a YouTube URL
-    
-    Args:
-        payload: Contains the YouTube URL to analyze
-        
-    Returns:
-        Analysis results in JSON format
-    """
-    if not analyzer:
-        raise HTTPException(status_code=503, detail="Analyzer not available")
-    
-    # Download audio using yt-dlp
-    with tempfile.TemporaryDirectory() as tmpd:
-        templ = os.path.join(tmpd, "%(id)s.%(ext)s")
-        cmd = [
-            "yt-dlp", 
-            "-x", 
-            "--audio-format", "wav", 
-            "--audio-quality", "0", 
-            "-o", templ, 
-            payload.url
-        ]
-        
-        try:
-            subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        except subprocess.CalledProcessError as e:
-            raise HTTPException(status_code=400, detail=f"Failed to download audio: {e}")
-        
-        wavs = list(Path(tmpd).glob("*.wav"))
-        if not wavs:
-            raise HTTPException(status_code=400, detail="No audio file was downloaded")
-        
-        # Analyze the downloaded audio
-        try:
-            result = analyze_audio_file(str(wavs[0]))
-            return JSONResponse(content=result.dict())
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn
