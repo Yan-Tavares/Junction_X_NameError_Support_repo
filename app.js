@@ -6,7 +6,11 @@ let uploadedFile = null;
 const audioFileInput = document.getElementById('audioFile');
 const audioPlayer = document.getElementById('audioPlayer');
 const audioPlayerContainer = document.getElementById('audioPlayerContainer');
-const fileName = document.getElementById('fileName');
+const uploadDropzone = document.getElementById('uploadDropzone');
+const fileInfo = document.getElementById('fileInfo');
+const fileInfoName = document.getElementById('fileInfoName');
+const fileInfoSize = document.getElementById('fileInfoSize');
+const removeFileBtn = document.getElementById('removeFileBtn');
 const analyzeBtn = document.getElementById('analyzeBtn');
 const loadingIndicator = document.getElementById('loadingIndicator');
 const welcomeMessage = document.getElementById('welcomeMessage');
@@ -28,21 +32,114 @@ confidenceThresholdInput.addEventListener('input', (e) => {
 });
 exportBtn.addEventListener('click', exportResults);
 
+// Drag and drop events
+uploadDropzone.addEventListener('click', () => audioFileInput.click());
+uploadDropzone.addEventListener('dragover', handleDragOver);
+uploadDropzone.addEventListener('dragleave', handleDragLeave);
+uploadDropzone.addEventListener('drop', handleDrop);
+removeFileBtn.addEventListener('click', handleRemoveFile);
+
+// Remove focus flash from details/summary elements
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('details summary').forEach(summary => {
+        summary.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            summary.blur();
+        });
+        summary.addEventListener('click', (e) => {
+            // Allow the default toggle behavior
+            setTimeout(() => summary.blur(), 0);
+        });
+    });
+});
+
+// Drag and drop handlers
+function handleDragOver(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    uploadDropzone.classList.add('dragover');
+}
+
+function handleDragLeave(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    uploadDropzone.classList.remove('dragover');
+}
+
+function handleDrop(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    uploadDropzone.classList.remove('dragover');
+    
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+        const file = files[0];
+        // Check if it's an audio file
+        if (file.type.startsWith('audio/') || 
+            /\.(wav|mp3|ogg|flac|m4a|webm)$/i.test(file.name)) {
+            processFile(file);
+        } else {
+            alert('Please upload an audio file (WAV, MP3, OGG, FLAC, M4A, WebM)');
+        }
+    }
+}
+
 // Handle file selection
 function handleFileSelect(event) {
     const file = event.target.files[0];
     if (file) {
-        uploadedFile = file;
-        fileName.textContent = file.name;
-        
-        // Set up audio player
-        const url = URL.createObjectURL(file);
-        audioPlayer.src = url;
-        audioPlayerContainer.classList.remove('hidden');
-        
-        // Enable analyze button
-        analyzeBtn.disabled = false;
+        processFile(file);
     }
+}
+
+// Process selected file
+function processFile(file) {
+    uploadedFile = file;
+    
+    // Hide dropzone, show file info
+    uploadDropzone.classList.add('hidden');
+    fileInfo.classList.remove('hidden');
+    
+    // Update file info
+    fileInfoName.textContent = file.name;
+    fileInfoSize.textContent = formatFileSize(file.size);
+    
+    // Set up audio player
+    const url = URL.createObjectURL(file);
+    audioPlayer.src = url;
+    audioPlayerContainer.classList.remove('hidden');
+    
+    // Enable analyze button
+    analyzeBtn.disabled = false;
+}
+
+// Handle file removal
+function handleRemoveFile(e) {
+    e.stopPropagation();
+    
+    // Clear file
+    uploadedFile = null;
+    audioFileInput.value = '';
+    
+    // Show dropzone, hide file info
+    uploadDropzone.classList.remove('hidden');
+    fileInfo.classList.add('hidden');
+    
+    // Hide audio player
+    audioPlayerContainer.classList.add('hidden');
+    audioPlayer.src = '';
+    
+    // Disable analyze button
+    analyzeBtn.disabled = true;
+}
+
+// Utility to format file size
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
 }
 
 // Analyze audio
@@ -125,19 +222,19 @@ function displayOverallResult(results) {
     let emoji, message, description, resultClass;
 
     if (label === 'safe') {
-        emoji = '✅';
-        message = 'No, this content is safe';
-        description = 'No significant extremist speech detected.';
+        emoji = '✓';
+        message = 'Content appears safe';
+        description = 'No significant extremist speech patterns detected in the analysis.';
         resultClass = 'result-box-safe';
     } else if (label === 'hate_detected') {
-        emoji = '⚠️';
-        message = 'Yes, there is!';
-        description = 'Extremist or hate speech identified in audio.';
+        emoji = '!';
+        message = 'Concerning content detected';
+        description = 'The analysis identified potential extremist or hate speech patterns.';
         resultClass = 'result-box-danger';
     } else {
-        emoji = '⚠️';
-        message = "I'm not 100% certain";
-        description = 'Some segments require review. Take a look at the transcript and see if you agree.';
+        emoji = '?';
+        message = 'Review recommended';
+        description = 'Some segments require manual review. Please examine the transcript and flagged segments below.';
         resultClass = 'result-box-warning';
     }
 
@@ -148,7 +245,7 @@ function displayOverallResult(results) {
             <p class="result-description">${description}</p>
             <div class="result-stats">
                 <div><strong>Confidence:</strong> ${(confidence * 100).toFixed(1)}%</div>
-                <div><strong>Segments:</strong> ${flaggedCount}/${totalSegments} flagged</div>
+                <div><strong>Flagged Segments:</strong> ${flaggedCount} of ${totalSegments}</div>
             </div>
         </div>
     `;
@@ -201,7 +298,7 @@ function displaySegments(results) {
     );
 
     if (displaySegments.length === 0) {
-        segmentsList.innerHTML = '<p class="empty-message">✅ No segments exceeded the threshold</p>';
+        segmentsList.innerHTML = '<p class="empty-message">No segments exceeded the threshold</p>';
         return;
     }
 
@@ -212,17 +309,14 @@ function displaySegments(results) {
         const end = segment.end || 0;
         const text = segment.text || '';
 
-        let icon, segmentClass, badgeClass;
+        let segmentClass, badgeClass;
         if (label === 'hate') {
-            icon = '🚨';
             segmentClass = 'segment-detail-hate';
             badgeClass = 'badge-danger';
         } else if (label === 'uncertain') {
-            icon = '⚠️';
             segmentClass = 'segment-detail-uncertain';
             badgeClass = 'badge-warning';
         } else {
-            icon = 'ℹ️';
             segmentClass = 'segment-detail-safe';
             badgeClass = 'badge-success';
         }
@@ -230,7 +324,6 @@ function displaySegments(results) {
         return `
             <details class="segment-detail ${segmentClass}">
                 <summary class="segment-summary">
-                    <span>${icon}</span>
                     <span class="segment-summary-flex">Segment ${i+1}: ${start.toFixed(1)}s - ${end.toFixed(1)}s</span>
                     <span class="badge ${badgeClass}">${label}</span>
                 </summary>
@@ -332,14 +425,14 @@ function displayEmotionAnalysis(emotionAnalysis) {
     // Display peaks
     if (peaks.length > 0) {
         emotionPeaks.innerHTML = `
-            <h3 class="heading-3 text-gray-900 mb-md">🔔 Detected Emotion Peaks:</h3>
+            <h3 class="heading-3 text-gray-900 mb-md">Detected Emotion Peaks</h3>
             ${peaks.map((peak, i) => `
                 <details class="emotion-peak-detail">
                     <summary class="emotion-peak-summary">
                         Peak ${i+1} at ${peak.time.toFixed(1)}s (Arousal: ${peak.arousal.toFixed(2)})
                     </summary>
                     <div class="emotion-peak-content">
-                        <p class="emotion-peak-row"><strong class="label-strong">Arousal:</strong> <span class="confidence-value">${peak.arousal.toFixed(2)}</span></p>
+                        <p class="emotion-peak-row"><strong class="label-strong">Arousal Level:</strong> <span class="confidence-value">${peak.arousal.toFixed(2)}</span></p>
                         ${peak.coincides_with ? `<p class="emotion-peak-row"><strong class="label-strong">Coincides with:</strong> <span class="badge badge-warning">${peak.coincides_with}</span></p>` : ''}
                         ${peak.text && peak.text !== 'N/A' ? `<p class="emotion-peak-text"><strong class="label-strong">Text:</strong> ${escapeHtml(peak.text)}</p>` : ''}
                     </div>

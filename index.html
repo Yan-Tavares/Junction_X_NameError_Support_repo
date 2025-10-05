@@ -11,56 +11,79 @@
     <style>
         /* ===== DESIGN SYSTEM ===== */
         :root {
-            /* Colors */
+            /* Colors - Professional Palette */
             --primary: #6366f1;
             --primary-dark: #4f46e5;
             --primary-light: #818cf8;
-            --danger: #ef4444;
+            --primary-lighter: #c7d2fe;
+            --danger: #dc2626;
             --danger-light: #fee2e2;
+            --danger-dark: #991b1b;
             --warning: #f59e0b;
             --warning-light: #fef3c7;
-            --success: #10b981;
+            --warning-dark: #b45309;
+            --success: #059669;
             --success-light: #d1fae5;
+            --success-dark: #065f46;
             
-            /* Grays */
+            /* Grays - Refined Scale */
+            --gray-25: #fcfcfd;
             --gray-50: #f9fafb;
             --gray-100: #f3f4f6;
             --gray-200: #e5e7eb;
             --gray-300: #d1d5db;
+            --gray-400: #9ca3af;
+            --gray-500: #6b7280;
             --gray-600: #4b5563;
             --gray-700: #374151;
             --gray-800: #1f2937;
             --gray-900: #111827;
             
-            /* Shadows */
-            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-            --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
-            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-            --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+            /* Shadows - Subtle and Professional */
+            --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -1px rgb(0 0 0 / 0.06);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -2px rgb(0 0 0 / 0.05);
+            --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 10px 10px -5px rgb(0 0 0 / 0.04);
             
-            /* Spacing System */
+            /* Spacing System - Consistent 8px Grid */
             --space-xs: 8px;
             --space-sm: 12px;
-            --space-md: 16px;
+            --space-base: 16px;
+            --space-md: 20px;
             --space-lg: 24px;
             --space-xl: 32px;
-            --space-2xl: 40px;
+            --space-2xl: 48px;
+            --space-3xl: 64px;
             
-            /* Typography */
+            /* Typography - Clear Hierarchy */
             --font-xs: 12px;
-            --font-sm: 13px;
-            --font-base: 14px;
-            --font-md: 15px;
-            --font-lg: 16px;
-            --font-xl: 18px;
-            --font-2xl: 20px;
-            --font-3xl: 24px;
+            --font-sm: 14px;
+            --font-base: 15px;
+            --font-md: 16px;
+            --font-lg: 18px;
+            --font-xl: 20px;
+            --font-2xl: 24px;
+            --font-3xl: 30px;
+            --font-4xl: 36px;
             
-            /* Border Radius */
-            --radius-sm: 8px;
-            --radius-md: 10px;
+            /* Line Heights */
+            --leading-tight: 1.25;
+            --leading-snug: 1.375;
+            --leading-normal: 1.5;
+            --leading-relaxed: 1.625;
+            
+            /* Border Radius - Consistent */
+            --radius-sm: 6px;
+            --radius-md: 8px;
             --radius-lg: 12px;
             --radius-xl: 16px;
+            --radius-full: 9999px;
+            
+            /* Transitions */
+            --transition-fast: 150ms ease;
+            --transition-base: 200ms ease;
+            --transition-slow: 300ms ease;
         }
         
         /* ===== RESET & BASE ===== */
@@ -71,12 +94,14 @@
         }
         
         body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(to bottom right, #f9fafb 0%, #e5e7eb 100%);
             min-height: 100vh;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            line-height: 1.6;
+            line-height: var(--leading-normal);
             color: var(--gray-900);
-            padding: var(--space-lg);
+            padding: var(--space-lg) var(--space-base);
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
         
         /* ===== LAYOUT ===== */
@@ -87,29 +112,36 @@
         
         .grid-layout {
             display: grid;
-            grid-template-columns: 1fr 3fr;
+            grid-template-columns: 380px 1fr;
             gap: var(--space-lg);
+            align-items: start;
+        }
+        
+        @media (max-width: 1024px) {
+            .grid-layout {
+                grid-template-columns: 1fr;
+            }
         }
         
         /* ===== CARDS ===== */
         .card {
             background: white;
-            border-radius: var(--radius-xl);
-            box-shadow: var(--shadow-xl);
-            transition: transform 0.2s, box-shadow 0.2s;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--gray-200);
+            box-shadow: var(--shadow-sm);
+            transition: box-shadow var(--transition-base);
         }
         
-        .card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+        .card:focus-within {
+            box-shadow: var(--shadow-md);
         }
         
         .card-padding {
-            padding: var(--space-xl);
+            padding: var(--space-lg);
         }
         
         .card-padding-lg {
-            padding: var(--space-2xl);
+            padding: var(--space-xl);
         }
         
         /* ===== BUTTONS ===== */
@@ -122,59 +154,131 @@
             font-size: var(--font-base);
             text-align: center;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all var(--transition-base);
             border: none;
-            line-height: 1.5;
+            line-height: var(--leading-normal);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .btn:focus-visible {
+            outline: 2px solid var(--primary);
+            outline-offset: 2px;
         }
         
         .btn-primary {
             background: var(--primary);
             color: white;
+            box-shadow: var(--shadow-xs);
         }
         
         .btn-primary:hover:not(:disabled) {
             background: var(--primary-dark);
-            transform: translateY(-1px);
-            box-shadow: var(--shadow-lg);
+            box-shadow: var(--shadow-sm);
+        }
+        
+        .btn-primary:active:not(:disabled) {
+            background: var(--primary-dark);
+            transform: translateY(1px);
+            box-shadow: none;
         }
         
         .btn-success {
             background: var(--success);
             color: white;
+            box-shadow: var(--shadow-xs);
         }
         
         .btn-success:hover:not(:disabled) {
-            background: #059669;
-            transform: translateY(-1px);
-            box-shadow: var(--shadow-lg);
+            background: var(--success-dark);
+            box-shadow: var(--shadow-sm);
+        }
+        
+        .btn-success:active:not(:disabled) {
+            background: var(--success-dark);
+            transform: translateY(1px);
+            box-shadow: none;
         }
         
         .btn:disabled {
-            opacity: 0.5;
+            opacity: 0.6;
             cursor: not-allowed;
+            filter: grayscale(0.3);
         }
         
         /* ===== FORM ELEMENTS ===== */
         .input-field {
             width: 100%;
             padding: var(--space-sm) var(--space-base);
-            border: 2px solid var(--gray-200);
-            border-radius: var(--radius-sm);
+            border: 1px solid var(--gray-300);
+            border-radius: var(--radius-md);
             font-size: var(--font-base);
-            transition: border-color 0.2s;
+            font-family: inherit;
+            transition: all var(--transition-base);
+            background: white;
+            color: var(--gray-900);
+        }
+        
+        .input-field:hover {
+            border-color: var(--gray-400);
         }
         
         .input-field:focus {
             outline: none;
             border-color: var(--primary);
+            box-shadow: 0 0 0 3px var(--primary-lighter);
         }
         
         .form-label {
             display: block;
             font-size: var(--font-sm);
-            font-weight: 500;
-            color: var(--gray-600);
+            font-weight: 600;
+            color: var(--gray-700);
             margin-bottom: var(--space-xs);
+        }
+        
+        /* Range Input Styling */
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            background: var(--gray-200);
+            border-radius: var(--radius-full);
+            outline: none;
+            appearance: none;
+            -webkit-appearance: none;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            appearance: none;
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            background: var(--primary);
+            cursor: pointer;
+            border-radius: 50%;
+            box-shadow: var(--shadow-sm);
+            transition: all var(--transition-fast);
+        }
+        
+        input[type="range"]::-webkit-slider-thumb:hover {
+            background: var(--primary-dark);
+            transform: scale(1.1);
+        }
+        
+        input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            background: var(--primary);
+            cursor: pointer;
+            border-radius: 50%;
+            border: none;
+            box-shadow: var(--shadow-sm);
+            transition: all var(--transition-fast);
+        }
+        
+        input[type="range"]::-moz-range-thumb:hover {
+            background: var(--primary-dark);
+            transform: scale(1.1);
         }
         
         /* ===== TYPOGRAPHY ===== */
@@ -196,6 +300,10 @@
         
         .text-xl {
             font-size: var(--font-xl);
+        }
+        
+        .text-gray-500 {
+            color: var(--gray-500);
         }
         
         .text-gray-600 {
@@ -225,19 +333,21 @@
         .heading-1 {
             font-size: var(--font-3xl);
             font-weight: 700;
-            line-height: 1.2;
+            line-height: var(--leading-tight);
+            letter-spacing: -0.02em;
         }
         
         .heading-2 {
             font-size: var(--font-2xl);
             font-weight: 700;
-            line-height: 1.2;
+            line-height: var(--leading-tight);
+            letter-spacing: -0.01em;
         }
         
         .heading-3 {
-            font-size: var(--font-xl);
-            font-weight: 700;
-            line-height: 1.2;
+            font-size: var(--font-lg);
+            font-weight: 600;
+            line-height: var(--leading-snug);
         }
         
         /* ===== SPACING UTILITIES ===== */
@@ -256,42 +366,52 @@
         /* ===== BADGES ===== */
         .badge {
             display: inline-block;
-            padding: 4px var(--space-sm);
-            border-radius: 6px;
+            padding: 4px 10px;
+            border-radius: var(--radius-full);
             font-size: var(--font-xs);
             font-weight: 600;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.04em;
         }
         
         .badge-danger {
             background: var(--danger-light);
-            color: var(--danger);
+            color: var(--danger-dark);
+            border: 1px solid var(--danger);
         }
         
         .badge-warning {
             background: var(--warning-light);
-            color: #b45309;
+            color: var(--warning-dark);
+            border: 1px solid var(--warning);
         }
         
         .badge-success {
             background: var(--success-light);
-            color: #065f46;
+            color: var(--success-dark);
+            border: 1px solid var(--success);
         }
         
         /* ===== TRANSCRIPT SEGMENTS ===== */
         .segment-hate {
             color: var(--danger);
-            font-weight: 500;
+            background: var(--danger-light);
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-weight: 600;
         }
         
         .segment-uncertain {
-            color: var(--warning);
-            font-weight: 500;
+            color: var(--warning-dark);
+            background: var(--warning-light);
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-weight: 600;
         }
         
         .segment-safe {
-            color: var(--gray-200);
+            color: var(--gray-600);
+            font-weight: 400;
         }
         
         /* ===== LOADING ===== */
@@ -315,14 +435,80 @@
         }
         
         /* ===== DETAILS/SUMMARY ===== */
+        details {
+            border-radius: var(--radius-md);
+            transition: all var(--transition-base);
+            outline: none;
+        }
+        
+        details:focus {
+            outline: none;
+        }
+        
+        details[open] {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+        }
+        
         details summary {
             list-style: none;
             cursor: pointer;
             user-select: none;
+            padding: var(--space-sm) var(--space-base);
+            border-radius: var(--radius-md);
+            transition: background var(--transition-fast);
+            outline: none !important;
+            border: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        details summary:focus,
+        details summary:focus-visible,
+        details summary:active {
+            outline: none !important;
+            border: none !important;
+            box-shadow: none !important;
+        }
+        
+        details summary::-moz-focus-inner {
+            border: 0 !important;
+            outline: none !important;
+        }
+        
+        details[open] summary {
+            border-bottom: 1px solid var(--gray-200);
+            margin-bottom: var(--space-base);
+            border-radius: var(--radius-md) var(--radius-md) 0 0;
+        }
+        
+        details summary:hover {
+            background: var(--gray-50);
         }
         
         details summary::-webkit-details-marker {
             display: none;
+        }
+        
+        details summary::before {
+            content: '▶';
+            display: inline-block;
+            margin-right: var(--space-xs);
+            transition: transform var(--transition-base);
+            font-size: 10px;
+            color: var(--gray-500);
+        }
+        
+        details[open] summary::before {
+            transform: rotate(90deg);
+        }
+        
+        details > *:not(summary) {
+            padding: 0 var(--space-base) var(--space-base);
+        }
+        
+        details[open] .input-field {
+            background: var(--gray-25);
+            border-color: var(--gray-300);
         }
         
         /* ===== PROGRESS BAR ===== */
@@ -330,25 +516,117 @@
             width: 100%;
             height: 8px;
             background: var(--gray-200);
-            border-radius: 4px;
+            border-radius: var(--radius-full);
             overflow: hidden;
         }
         
         .progress-bar-fill {
             height: 100%;
             background: linear-gradient(90deg, var(--primary), var(--primary-light));
-            transition: width 0.3s ease;
+            transition: width var(--transition-slow);
+            border-radius: var(--radius-full);
         }
         
         /* ===== AUDIO PLAYER ===== */
         audio {
             width: 100%;
-            border-radius: var(--radius-sm);
+            border-radius: var(--radius-md);
             outline: none;
         }
         
         audio::-webkit-media-controls-panel {
             background: var(--gray-50);
+            border-radius: var(--radius-md);
+        }
+        
+        /* ===== FILE UPLOAD DROPZONE ===== */
+        .upload-dropzone {
+            border: 2px dashed var(--gray-300);
+            border-radius: var(--radius-lg);
+            padding: var(--space-2xl);
+            text-align: center;
+            cursor: pointer;
+            transition: all var(--transition-base);
+            background: var(--gray-50);
+            position: relative;
+        }
+        
+        .upload-dropzone:hover {
+            border-color: var(--primary);
+            background: var(--primary-lighter);
+            transform: translateY(-2px);
+        }
+        
+        .upload-dropzone.dragover {
+            border-color: var(--primary);
+            background: var(--primary-lighter);
+            border-width: 3px;
+        }
+        
+        .upload-icon {
+            font-size: 48px;
+            margin-bottom: var(--space-sm);
+            opacity: 0.6;
+        }
+        
+        .upload-text {
+            font-size: var(--font-base);
+            color: var(--gray-700);
+            font-weight: 600;
+            margin-bottom: var(--space-xs);
+        }
+        
+        .upload-hint {
+            font-size: var(--font-sm);
+            color: var(--gray-500);
+        }
+        
+        .file-info {
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+            padding: var(--space-base);
+            background: var(--gray-50);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--gray-300);
+        }
+        
+        .file-info-icon {
+            font-size: 24px;
+        }
+        
+        .file-info-details {
+            flex: 1;
+            text-align: left;
+        }
+        
+        .file-info-name {
+            font-size: var(--font-base);
+            font-weight: 600;
+            color: var(--gray-900);
+            margin-bottom: 2px;
+        }
+        
+        .file-info-size {
+            font-size: var(--font-sm);
+            color: var(--gray-600);
+        }
+        
+        .file-remove-btn {
+            background: none;
+            border: none;
+            color: var(--gray-500);
+            cursor: pointer;
+            padding: var(--space-xs);
+            border-radius: var(--radius-sm);
+            transition: all var(--transition-fast);
+            font-size: 20px;
+            line-height: 1;
+        }
+        
+        .file-remove-btn:hover {
+            background: var(--gray-200);
+            color: var(--danger);
         }
         
         /* ===== SECTION HEADER ===== */
@@ -357,12 +635,15 @@
             align-items: center;
             gap: var(--space-sm);
             margin-bottom: var(--space-lg);
-            padding-bottom: var(--space-sm);
-            border-bottom: 2px solid var(--gray-100);
+            padding-bottom: var(--space-base);
+            border-bottom: 2px solid var(--gray-200);
         }
         
         .section-icon {
-            font-size: var(--font-3xl);
+            font-size: var(--font-2xl);
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         
         /* ===== DIVIDER ===== */
@@ -374,40 +655,48 @@
         
         /* ===== TRANSCRIPT CONTAINER ===== */
         .transcript-container {
-            background: var(--gray-800);
-            color: var(--gray-100);
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            color: var(--gray-900);
             padding: var(--space-lg);
-            border-radius: var(--radius-lg);
-            line-height: 1.8;
-            font-size: var(--font-md);
+            border-radius: var(--radius-md);
+            line-height: var(--leading-relaxed);
+            font-size: var(--font-base);
+            max-height: 400px;
+            overflow-y: auto;
         }
         
         .transcript-legend {
             display: flex;
+            flex-wrap: wrap;
             align-items: center;
-            gap: var(--space-md);
+            gap: var(--space-base);
             font-size: var(--font-sm);
             color: var(--gray-600);
+            padding: var(--space-sm) var(--space-base);
+            background: var(--gray-50);
+            border-radius: var(--radius-md);
         }
         
         /* ===== WELCOME MESSAGE ===== */
         .welcome-message {
-            padding: 80px var(--space-2xl);
+            padding: var(--space-3xl) var(--space-2xl);
+            text-align: center;
         }
         
         .welcome-icon {
-            font-size: 80px;
+            font-size: 64px;
             margin-bottom: var(--space-lg);
+            opacity: 0.8;
         }
         
         /* ===== FOOTER ===== */
         .footer {
             margin-top: var(--space-2xl);
             text-align: center;
-            color: white;
-            font-size: var(--font-base);
-            padding: var(--space-lg);
-            opacity: 0.9;
+            color: var(--gray-600);
+            font-size: var(--font-sm);
+            padding: var(--space-xl) var(--space-base);
         }
         
         /* ===== UTILITY CLASSES ===== */
@@ -435,8 +724,8 @@
         .result-box {
             text-align: center;
             border-radius: var(--radius-lg);
-            padding: var(--space-xl);
-            border: 3px solid;
+            padding: var(--space-2xl);
+            border: 2px solid;
         }
         
         .result-box-safe {
@@ -455,58 +744,88 @@
         }
         
         .result-emoji {
-            font-size: 64px;
-            margin-bottom: var(--space-md);
+            font-size: 48px;
+            margin-bottom: var(--space-base);
+            line-height: 1;
         }
         
         .result-title {
             font-size: var(--font-3xl);
             font-weight: 700;
             color: var(--gray-900);
-            margin-bottom: var(--space-sm);
+            margin-bottom: var(--space-base);
+            line-height: var(--leading-tight);
         }
         
         .result-description {
-            font-size: var(--font-xl);
+            font-size: var(--font-lg);
             color: var(--gray-700);
             margin-bottom: var(--space-lg);
+            line-height: var(--leading-relaxed);
         }
         
         .result-stats {
             display: flex;
             justify-content: center;
-            gap: var(--space-2xl);
+            flex-wrap: wrap;
+            gap: var(--space-xl);
             font-size: var(--font-base);
-            color: var(--gray-600);
+            color: var(--gray-700);
+            font-weight: 500;
         }
         
         .segment-detail {
-            border: 2px solid;
+            border: 1px solid;
             border-radius: var(--radius-md);
-            margin-bottom: var(--space-md);
+            margin-bottom: var(--space-base);
             overflow: hidden;
             background: white;
+            transition: all var(--transition-base);
+        }
+        
+        .segment-detail:hover {
+            box-shadow: var(--shadow-sm);
         }
         
         .segment-detail-hate {
             border-color: var(--danger);
         }
         
+        .segment-detail-hate[open] > .segment-summary {
+            background: var(--danger-light);
+            border-bottom: 1px solid var(--danger);
+        }
+        
         .segment-detail-uncertain {
             border-color: var(--warning);
         }
         
+        .segment-detail-uncertain[open] > .segment-summary {
+            background: var(--warning-light);
+            border-bottom: 1px solid var(--warning);
+        }
+        
         .segment-detail-safe {
-            border-color: var(--primary);
+            border-color: var(--gray-300);
+        }
+        
+        .segment-detail-safe[open] > .segment-summary {
+            background: var(--gray-100);
+            border-bottom: 1px solid var(--gray-300);
         }
         
         .segment-summary {
-            padding: var(--space-md);
+            padding: var(--space-base) var(--space-lg);
             font-weight: 600;
             font-size: var(--font-base);
             display: flex;
             align-items: center;
-            gap: var(--space-xs);
+            gap: var(--space-sm);
+            background: white;
+            transition: background var(--transition-base);
+        }
+        
+        .segment-summary:hover {
             background: var(--gray-50);
         }
         
@@ -520,17 +839,20 @@
         }
         
         .segment-text {
-            margin-bottom: var(--space-sm);
+            margin-bottom: var(--space-base);
             color: var(--gray-700);
-            line-height: 1.6;
+            line-height: var(--leading-relaxed);
         }
         
         .segment-label-row {
             margin-bottom: var(--space-sm);
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
         }
         
         .segment-confidence-row {
-            margin-bottom: var(--space-xs);
+            margin-bottom: var(--space-sm);
         }
         
         .confidence-value {
@@ -540,44 +862,61 @@
         
         .label-strong {
             color: var(--gray-900);
+            font-weight: 600;
         }
         
         .empty-message {
             color: var(--gray-600);
-            padding: var(--space-lg);
+            padding: var(--space-xl);
             text-align: center;
             background: var(--gray-50);
-            border-radius: var(--radius-sm);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--gray-200);
         }
         
         .emotion-peak-detail {
-            border: 2px solid var(--gray-300);
+            border: 1px solid var(--gray-300);
             border-radius: var(--radius-md);
             margin-bottom: var(--space-sm);
             overflow: hidden;
             background: white;
+            transition: box-shadow var(--transition-base);
+        }
+        
+        .emotion-peak-detail:hover {
+            box-shadow: var(--shadow-sm);
         }
         
         .emotion-peak-summary {
-            padding: var(--space-base) var(--space-md);
+            padding: var(--space-base) var(--space-lg);
             font-weight: 600;
             font-size: var(--font-base);
+            background: white;
+            transition: background var(--transition-base);
+        }
+        
+        .emotion-peak-summary:hover {
             background: var(--gray-50);
         }
         
+        .emotion-peak-detail[open] > .emotion-peak-summary {
+            background: var(--gray-50);
+            border-bottom: 1px solid var(--gray-200);
+        }
+        
         .emotion-peak-content {
-            padding: var(--space-md);
+            padding: var(--space-lg);
             background: white;
         }
         
         .emotion-peak-row {
-            margin-bottom: var(--space-xs);
+            margin-bottom: var(--space-sm);
         }
         
         .emotion-peak-text {
             margin-bottom: 0;
             color: var(--gray-700);
-            line-height: 1.6;
+            line-height: var(--leading-relaxed);
         }
     </style>
 </head>
@@ -586,28 +925,70 @@
         <!-- Header -->
         <div class="card card-padding-lg text-center mb-lg">
             <h1 class="heading-1 text-gray-900 mb-sm">
-                🗣️ Is there extremist speech in this audio?
+                Safe Speech Analyzer
             </h1>
+            <p class="text-base text-gray-600">
+                Detect extremist speech patterns in audio with AI-powered analysis
+            </p>
         </div>
 
         <div class="grid-layout">
             <!-- Sidebar -->
             <div>
                 <div class="card card-padding mb-lg">
-                    <div class="section-header">
-                        <span class="section-icon">ℹ️</span>
-                        <h3 class="heading-3 text-gray-900">About</h3>
+                    <!-- Upload Section -->
+                    <div class="mb-lg">
+                        <input type="file" id="audioFile" 
+                            accept="audio/*,.wav,.mp3,.ogg,.flac,.m4a,.webm"
+                            class="hidden">
+                        
+                        <!-- Dropzone (shown when no file) -->
+                        <div id="uploadDropzone" class="upload-dropzone">
+                            <div class="upload-icon">📁</div>
+                            <div class="upload-text">Drag & drop audio file here</div>
+                            <div class="upload-hint">or click to browse</div>
+                            <div class="upload-hint" style="margin-top: var(--space-xs);">
+                                WAV, MP3, OGG, FLAC, M4A, WebM
+                            </div>
+                        </div>
+                        
+                        <!-- File Info (shown when file selected) -->
+                        <div id="fileInfo" class="file-info hidden">
+                            <div class="file-info-icon">🎵</div>
+                            <div class="file-info-details">
+                                <div class="file-info-name" id="fileInfoName"></div>
+                                <div class="file-info-size" id="fileInfoSize"></div>
+                            </div>
+                            <button class="file-remove-btn" id="removeFileBtn" title="Remove file">×</button>
+                        </div>
                     </div>
-                    <p class="text-base text-gray-600 mb-lg">
-                        Upload an audio file to detect potentially harmful extremist content with timestamped analysis.
-                    </p>
+                    
+                    <!-- Audio Player -->
+                    <div id="audioPlayerContainer" class="mb-lg hidden">
+                        <audio id="audioPlayer" controls></audio>
+                    </div>
+                    
+                    <!-- Analyze Button -->
+                    <button id="analyzeBtn" 
+                        class="btn btn-success mb-base"
+                        disabled>
+                        Analyze Audio
+                    </button>
+                    
+                    <!-- Loading Indicator -->
+                    <div id="loadingIndicator" class="loading-container mb-lg hidden">
+                        <div class="spinner"></div>
+                        <p class="text-base text-gray-700 font-medium">Analyzing audio...</p>
+                    </div>
+                    
+                    <hr class="divider">
                     
                     <!-- Settings -->
-                    <details class="mb-lg">
-                        <summary class="font-semibold text-gray-700" style="padding: var(--space-xs) 0;">
-                            ⚙️ Settings
+                    <details>
+                        <summary class="font-semibold text-gray-700">
+                            Advanced Settings
                         </summary>
-                        <div class="flex flex-col gap-md mt-md">
+                        <div class="flex flex-col gap-md">
                             <div>
                                 <label class="form-label">API Endpoint</label>
                                 <input type="text" id="apiUrl" 
@@ -622,45 +1003,12 @@
                                 <input type="range" id="confidenceThreshold" 
                                     min="0" max="1" step="0.05" value="0.5"
                                     style="width: 100%;">
+                                <p class="text-sm text-gray-500" style="margin-top: var(--space-xs);">
+                                    Adjust sensitivity for flagging segments
+                                </p>
                             </div>
                         </div>
                     </details>
-                    
-                    <hr class="divider">
-                    
-                    <!-- Upload Section -->
-                    <div class="section-header">
-                        <span class="section-icon">📤</span>
-                        <h3 class="heading-3 text-gray-900">Upload Audio</h3>
-                    </div>
-                    <div class="mb-md">
-                        <input type="file" id="audioFile" 
-                            accept="audio/*,.wav,.mp3,.ogg,.flac,.m4a,.webm"
-                            class="hidden">
-                        <button onclick="document.getElementById('audioFile').click()"
-                            class="btn btn-primary">
-                            Choose Audio File
-                        </button>
-                        <p id="fileName" class="text-sm text-gray-600 text-center font-medium" style="margin-top: var(--space-xs);"></p>
-                    </div>
-                    
-                    <!-- Audio Player -->
-                    <div id="audioPlayerContainer" class="mb-md hidden">
-                        <audio id="audioPlayer" controls></audio>
-                    </div>
-                    
-                    <!-- Analyze Button -->
-                    <button id="analyzeBtn" 
-                        class="btn btn-success"
-                        disabled>
-                        🔍 Analyze Audio
-                    </button>
-                    
-                    <!-- Loading Indicator -->
-                    <div id="loadingIndicator" class="loading-container mt-lg hidden">
-                        <div class="spinner"></div>
-                        <p class="text-base text-gray-600 font-medium">Analyzing audio...</p>
-                    </div>
                 </div>
             </div>
 
@@ -669,8 +1017,8 @@
                 <!-- Welcome Message -->
                 <div id="welcomeMessage" class="card welcome-message text-center">
                     <div class="welcome-icon">🎵</div>
-                    <h2 class="heading-2 text-gray-900 mb-sm">Ready to Analyze</h2>
-                    <p class="text-lg text-gray-600">Upload an audio file and click "Analyze Audio" to begin</p>
+                    <h2 class="heading-2 text-gray-900 mb-base">Ready to Analyze</h2>
+                    <p class="text-base text-gray-600">Upload an audio file and click "Analyze Audio" to begin</p>
                 </div>
 
                 <!-- Results Container -->
@@ -683,31 +1031,30 @@
                     <!-- Export Button -->
                     <div class="mb-lg">
                         <button id="exportBtn" class="btn btn-primary">
-                            📥 Export Results as JSON
+                            Export Results as JSON
                         </button>
                     </div>
 
                     <!-- Transcript -->
                     <div class="card card-padding-lg mb-lg">
                         <div class="section-header">
-                            <span class="section-icon">📝</span>
-                            <h2 class="heading-2">Transcript</h2>
+                            <h2 class="heading-2">Full Transcript</h2>
                         </div>
-                        <div id="transcript" class="transcript-container mb-md">
+                        <div id="transcript" class="transcript-container mb-base">
                             <!-- Colored transcript will be inserted here -->
                         </div>
                         <div class="transcript-legend">
-                            <span>🔴 Red = Hate speech</span>
-                            <span>🟡 Orange = Uncertain</span>
-                            <span>⚪ Grey = Safe</span>
+                            <span><strong>Legend:</strong></span>
+                            <span class="segment-hate">Extremist content</span>
+                            <span class="segment-uncertain">Uncertain</span>
+                            <span class="segment-safe">Safe content</span>
                         </div>
                     </div>
 
                     <!-- Segments -->
                     <div id="segmentsContainer" class="card card-padding-lg mb-lg">
                         <div class="section-header">
-                            <span class="section-icon">🔍</span>
-                            <h2 class="heading-2">Analyzed Segments</h2>
+                            <h2 class="heading-2">Flagged Segments</h2>
                         </div>
                         <div id="segmentsList">
                             <!-- Segments will be inserted here -->
@@ -717,8 +1064,7 @@
                     <!-- Emotion Analysis -->
                     <div id="emotionContainer" class="card card-padding-lg mb-lg hidden">
                         <div class="section-header">
-                            <span class="section-icon">😊</span>
-                            <h2 class="heading-2">Emotion Analysis</h2>
+                            <h2 class="heading-2">Emotional Analysis</h2>
                         </div>
                         <div id="emotionChart" style="height: 600px;"></div>
                         <div id="emotionPeaks" class="mt-lg">
@@ -731,7 +1077,7 @@
 
         <!-- Footer -->
         <div class="footer">
-            <p class="font-medium">Built for Junction X Hackathon | Team NameError</p>
+            <p class="font-medium">Built for Junction X Hackathon • Team NameError</p>
         </div>
     </div>
 
