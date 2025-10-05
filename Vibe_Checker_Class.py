@@ -141,24 +141,25 @@ class Vibe_Checker_model:
             numpy.ndarray: Predictions of shape (n_segments, 3) 
                           [p_normal, p_offensive, p_extremist]
         """
+        segments = list(segments)
         n_segments = len(segments)
         predictions = np.zeros((n_segments, 3))  # 3 labels: normal, offensive, extremist
+
         
-        # Get audio path from segments or parameter
-        if audio_path is None and segments and 'audio_path' in segments[0]:
-            audio_path = segments[0]['audio_path']
-        
-        if audio_path is None:
-            print("⚠️ No audio path provided, returning neutral predictions")
-            predictions[:, 0] = 1.0  # All normal
-            return predictions
+        print(f"🎤 Processing {n_segments} segments from: {audio_path}")
         
         for i, segment in enumerate(segments):
             try:
-                # Extract audio for this segment
-                start = segment.get('start', 0)
-                end = segment.get('end', start + 5)
-                text = segment.get('text', '')
+                # Handle both dict and object (Segment) formats
+                if isinstance(segment, dict):
+                    start = segment.get('start', 0)
+                    end = segment.get('end', start + 5)
+                    text = segment.get('text', '')
+                else:
+                    # Segment object with attributes
+                    start = getattr(segment, 'start', 0)
+                    end = getattr(segment, 'end', start + 5)
+                    text = getattr(segment, 'text', '')
                 
                 if not text:
                     # No text, assume normal
@@ -186,25 +187,16 @@ class Vibe_Checker_model:
                 # Analyze with LLM
                 llm_result = analyze_extremism(augmented_text)
                 
-                # Convert LLM result to probability distribution
+                # Use LLM's probability distribution directly
                 if llm_result.get('validation_status') == 'PASSED':
-                    extremist = llm_result.get('extremist', 'No')
-                    confidence = llm_result.get('confidence', 0.5)
-                    
-                    if extremist == 'Yes':
-                        # High extremism confidence
-                        predictions[i] = [
-                            0.1 * (1 - confidence),  # p_normal
-                            0.3 * (1 - confidence),  # p_offensive  
-                            0.6 + 0.4 * confidence   # p_extremist
-                        ]
-                    else:
-                        # Low extremism confidence - could be normal or offensive
-                        predictions[i] = [
-                            0.7 * (1 - confidence) + 0.3,  # p_normal
-                            0.3 * confidence,              # p_offensive
-                            0.0                            # p_extremist
-                        ]
+                    # LLM returns [p_safe, p_uncertain, p_extremist]
+                    # We need [p_normal, p_offensive, p_extremist]
+                    # Map: safe→normal, uncertain→offensive, extremist→extremist
+                    predictions[i] = [
+                        llm_result.get('p_safe', 0.7),      # p_normal
+                        llm_result.get('p_uncertain', 0.2),  # p_offensive
+                        llm_result.get('p_extremist', 0.1)   # p_extremist
+                    ]
                 else:
                     # LLM failed, return neutral prediction
                     print(f"⚠️ LLM failed for segment {i}: {llm_result.get('error', 'Unknown error')}")

@@ -85,9 +85,10 @@ class AudioTranscriber:
         segment_list = merge_short_segments(segment_list)
         
         # Clean up preprocessed file if it's temporary
-        audio_path = Path(audio_path)
-        if audio_path.exists() and "_processed" in str(audio_path):
-            audio_path.unlink()
+        # NOTE: Commented out because audio models need this file
+        # audio_path = Path(audio_path)
+        # if audio_path.exists() and "_processed" in str(audio_path):
+        #     audio_path.unlink()
         
         # Build full transcript
         full_transcript = " ".join(s["text"] for s in segment_list)

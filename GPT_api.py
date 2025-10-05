@@ -16,22 +16,36 @@ llm = ChatOllama(model=MODEL_NAME, temperature=0.3)
 
 # Pydantic model for output validation (trustcall uses this)
 class ExtremismAnalysisOutput(BaseModel):
-    """Validated output schema for extremism analysis"""
-    extremist: Literal["Yes", "No"] = Field(
-        description="Whether the sentence is extremist (Yes) or not extremist (No)"
-    )
-    confidence: float = Field(
+    """Validated output schema for extremism analysis with three probability scores"""
+
+    p_safe: float = Field(
         ge=0.0, 
         le=1.0, 
-        description="How certain you are in your classification. 0.0 = completely uncertain/guessing, 1.0 = absolutely certain. This measures confidence in the classification itself, NOT the probability of extremism."
+        description="Probability that the content is safe/normal (0.0 to 1.0)"
+    )
+    p_uncertain: float = Field(
+        ge=0.0, 
+        le=1.0, 
+        description="Probability that the content is uncertain/offensive but not clearly extremist (0.0 to 1.0)"
+    )
+    p_extremist: float = Field(
+        ge=0.0, 
+        le=1.0, 
+        description="Probability that the content is extremist (0.0 to 1.0)"
     )
     
-    @field_validator('confidence')
+    @field_validator('p_safe', 'p_uncertain', 'p_extremist')
     @classmethod
-    def validate_confidence(cls, v):
+    def validate_probability(cls, v):
         if not 0.0 <= v <= 1.0:
-            raise ValueError('Confidence must be between 0 and 1')
+            raise ValueError('Probability must be between 0 and 1')
         return v
+    
+    def model_post_init(self, __context):
+        """Validate that probabilities sum to approximately 1.0"""
+        total = self.p_safe + self.p_uncertain + self.p_extremist
+        if not (0.95 <= total <= 1.05):  # Allow small floating point errors
+            raise ValueError(f'Probabilities must sum to ~1.0, got {total}')
 
 # Create trustcall extractor - this wraps the LLM and enforces structured output
 extractor = create_extractor(
@@ -48,50 +62,66 @@ You are not biased toward over-flagging or under-flagging: your role is to weigh
 You receive:
 1. The spoken sentence (transcribed).
 2. The detected tone/emotion label (e.g., angry, sad, happy, etc.).
-3. The tone intensity score (e.g., 0.0-1.0).
-4. Optional prosodic features (pitch, emphasis, pace).
+3. The emotion confidence score (e.g., 0.0-1.0).
+4. Prosodic features (pitch, emphasis, pace).
 
-Your task: **classify the sentence as extremist or not**. In more detail:
-- Interpret the sentence as if you were a "devil's advocate": consider multiple possible speaker intentions, audiences, and cultural contexts.
-- Be self-aware and reflective: a vague or awkward statement (e.g., about gender, race, religion) may not always be extremist — it could be ignorance, casual stereotyping, or bad phrasing.
-- At the same time, extremist speech should be recognized when it is explicitly derogatory, exclusionary, or promoting hostility against a group.
-- Avoid labeling borderline, ambiguous, or low-intensity statements as extremist unless they clearly cross the line.
-- Consider how tone, intensity, and prosodic features (pitch, emphasis, pace) might affect interpretation.
+Your task: **Provide THREE probability scores** that sum to 1.0:
+- **p_safe**: Probability this is safe/normal content (0.0-1.0)
+- **p_uncertain**: Probability this is uncertain/offensive but not clearly extremist (0.0-1.0)  
+- **p_extremist**: Probability this is extremist content (0.0-1.0)
 
-Just a few possible examples (not an exhaustive list) of how the speakers' intent can be recognized in the extra features:
+Guidelines:
+- Interpret the sentence considering multiple possible speaker intentions, audiences, and cultural contexts.
+- Be self-aware and reflective: vague or awkward statements may be ignorance, casual stereotyping, or bad phrasing (→ uncertain).
+- Extremist speech should be recognized when it is explicitly derogatory, exclusionary, or promoting hostility against a group.
+- Consider how tone, intensity, and prosodic features affect interpretation.
 
-| Tone | Typical Pattern |
-|------|----------------|
-| **Sarcasm** | pitch=high + emphasis=high + contradictory words + emotion=neutral |
-| **Playfulness** | pitch=medium/high + emphasis=high + pace=fast/moderate |
-| **Disbelief** | pitch=high OR low + pace=slow + questioning words |
-| **Serious** | pitch=low + emphasis=low + pace=moderate/slow |
-| **Excitement** | pitch=high + emphasis=high + pace=fast + emotion=happy |
-| **Boredom** | pitch=low + emphasis=low + pace=slow + emotion=neutral |
-| **Anger** | pitch=high + emphasis=high + pace=fast + emotion=angry |
-| **Thoughtful** | pitch=low + emphasis=low/medium + pace=slow |
+**Prosodic Feature Patterns:**
 
-Consider carefully if there are any patterns like these that you can see in the evaluated sample.
+| Tone | Typical Pattern | Classification Hint |
+|------|----------------|-------------------|
+| **Sarcasm** | pitch=high + emphasis=high + contradictory words + emotion=neutral | Often safer than literal interpretation |
+| **Playfulness** | pitch=medium/high + emphasis=high + pace=fast | Usually safe unless content is clearly hostile |
+| **Disbelief** | pitch=high OR low + pace=slow + questioning | Often uncertain, rarely extremist |
+| **Serious** | pitch=low + emphasis=low + pace=moderate/slow | Take literal meaning more seriously |
+| **Anger** | pitch=high + emphasis=high + pace=fast + emotion=angry | Higher chance of extremism if targeting groups |
+| **Thoughtful** | pitch=low + emphasis=low/medium + pace=slow | Usually safe or uncertain |
 
-**Output Format:**
-You must provide TWO fields:
-1. **extremist**: Either "Yes" (is extremist) or "No" (not extremist)
-2. **confidence**: A float between 0.0 and 1.0 representing HOW CERTAIN you are in your classification
-   - 0.0 = completely uncertain, pure guess
-   - 0.5 = moderately uncertain, could go either way
-   - 0.8 = fairly confident in your classification
-   - 1.0 = absolutely certain, no doubt
+**Decision Process:**
 
-**CRITICAL**: The confidence score measures YOUR CONFIDENCE IN THE CLASSIFICATION, not the probability of extremism.
-- If you classify as "Yes" with confidence 0.9, it means: "I'm 90% sure this IS extremist"
-- If you classify as "No" with confidence 0.9, it means: "I'm 90% sure this is NOT extremist"
-- Both "Yes" and "No" answers can have HIGH confidence scores!
+1. **High p_safe (0.7-1.0)**: 
+   - Clearly non-hostile content
+   - Neutral or positive statements
+   - Sarcasm/jokes that are obviously not serious
+   
+2. **High p_uncertain (0.5-0.8)**:
+   - Ambiguous statements that could be interpreted multiple ways
+   - Casual stereotypes or insensitive comments
+   - Content that's offensive but not promoting violence/hatred
+   - Borderline cases where context is unclear
+   
+3. **High p_extremist (0.5-1.0)**:
+   - Explicit derogatory language toward groups
+   - Calls for exclusion, harm, or denial of rights
+   - Promoting hostility based on identity (race, religion, gender, etc.)
+   - Clear hate speech
+
+**CRITICAL**: The three probabilities MUST sum to 1.0 (or very close, like 0.99-1.01).
 
 **Examples:**
-- Clear hate speech → extremist="Yes", confidence=0.95
-- Obviously innocent statement → extremist="No", confidence=0.95
-- Ambiguous/sarcastic statement → extremist="No" (or "Yes"), confidence=0.4
-- Statement lacking context → extremist="No", confidence=0.3
+
+Example 1: "I think everyone deserves equal rights. [emotion=calm, emotion confidence=0.8, pitch=medium, emphasis=low, pace=moderate]"
+→ p_safe=0.95, p_uncertain=0.05, p_extremist=0.0
+
+Example 2: "Those people are a bit weird, honestly. [emotion=neutral, emotion confidence=0.6, pitch=high, emphasis=high, pace=fast]"
+→ p_safe=0.3, p_uncertain=0.65, p_extremist=0.05
+
+Example 3: "They should be removed from our country. [emotion=angry, emotion confidence=0.9, pitch=high, emphasis=high, pace=moderate]"
+→ p_safe=0.05, p_uncertain=0.15, p_extremist=0.8
+
+Example 4: "Oh sure, they're TOTALLY gonna save the world... [emotion=neutral, emotion confidence=0.7, pitch=high, emphasis=high, pace=moderate]"
+(Sarcastic tone detected → likely not serious threat)
+→ p_safe=0.7, p_uncertain=0.25, p_extremist=0.05
 """
 
 def analyze_extremism(augmented_text, context_before=None, context_after=None):
@@ -168,8 +198,9 @@ if __name__ == "__main__":
     print("Testing extremism analysis with trustcall validation...\n")
     
     test_cases = [
-        "This group of people should not have the same rights as us. [emotion=angry, intensity=0.85, pitch=high, emphasis=high, pace=fast]",
-        "I think we should all work together to build a better community. [emotion=calm, intensity=0.2, pitch=medium, emphasis=low, pace=moderate]"
+        "This group of people should not have the same rights as us. [emotion=angry, emotion confidence=0.85, pitch=high, emphasis=high, pace=fast]",
+        "I think we should all work together to build a better community. [emotion=calm, emotion confidence=0.8, pitch=medium, emphasis=low, pace=moderate]",
+        "Those people are a bit weird, honestly. [emotion=neutral, emotion confidence=0.6, pitch=high, emphasis=high, pace=fast]"
     ]
     
     for i, test_augmented_text in enumerate(test_cases, 1):
@@ -186,8 +217,10 @@ if __name__ == "__main__":
         # Check validation status
         if result.get("validation_status") == "PASSED":
             print("\n✓ Output validation PASSED - Model returned correct format")
-            print(f"  - Extremist: {result['extremist']}")
-            print(f"  - confidence: {result['confidence']} (confidence in the classification)")
-            print(f"  - Note: Both 'Yes' and 'No' answers should have high confidence if the model is confident!")
+            print(f"  - p_safe: {result['p_safe']:.3f}")
+            print(f"  - p_uncertain: {result['p_uncertain']:.3f}")
+            print(f"  - p_extremist: {result['p_extremist']:.3f}")
+            total = result['p_safe'] + result['p_uncertain'] + result['p_extremist']
+            print(f"  - Sum: {total:.3f} (should be ~1.0)")
         else:
             print(f"\n✗ Output validation FAILED - {result.get('error')}")
