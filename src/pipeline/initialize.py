@@ -8,14 +8,17 @@ if PROJECT_DIR not in sys.path:
 from src.model.ensemble import Ensemble
 from src.model.dummy import DummyModel
 from src.model.sentiment_base import BaseSentimentModel
+#from src.model.sentiment_model import HateXplainModel, ToxicityModel, RobertaSentimentModel
+from src.model.text_models import HateXplainModel, ToxicityModel, ZeroShotExtremismNLI, HeuristicLexiconModel
 from src.model.vibechecker import VibeCheckerModel
-from src.model.sentiment_model import SentimentModel
 
 model_options = [
     "DummyModel",
     "BaseSentimentModel", 
     "VibeCheckerModel",
-    "SentimentModel"
+    "HateXplainModel",
+    "ToxicityModel",
+    "RobertaSentimentModel"
 ]
 
 def load_config(config_path="ensemble_config.yaml"):
