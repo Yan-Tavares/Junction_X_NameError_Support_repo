@@ -7,12 +7,18 @@ data/
 temp/
 external/
 /app.py
+emotion_env/
+ravdess_raw/
+emotion_model/
 streamlit_app.py
 run_streamlit.sh
 
 # Python
 __pycache__/
 *.pyc
+
+# macOS
+.DS_Store
 
 # Virtual environments
 venv/
@@ -26,4 +32,9 @@ ENV/
 # Environment variables
 .env
 
+# File types
 *.wav
+*.json
+*.pyc
+*.safetensors
+*.bin
