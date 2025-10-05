@@ -12,6 +12,9 @@ import tempfile
 import os
 from pathlib import Path
 import sys
+import subprocess
+import re
+import shutil
 
 # Add parent directory to path for imports
 sys.path.append(str(Path(__file__).parent.parent.parent))
@@ -70,6 +73,9 @@ class HealthResponse(BaseModel):
     status: str
     version: str
     models_loaded: bool
+
+class YoutubeRequest(BaseModel):
+    url: str
 
 # Global analyzer instance
 analyzer = None
@@ -241,6 +247,120 @@ def analyze_audio_file(audio_path: str) -> AnalysisResult:
         
     except Exception as e:
         raise Exception(f"Error analyzing audio: {str(e)}")
+
+
+def download_youtube_audio(url: str, out_dir: Path) -> Path:
+    """
+    Download audio from YouTube URL using yt-dlp
+    
+    Args:
+        url: YouTube video URL
+        out_dir: Directory to save downloaded audio
+        
+    Returns:
+        Path to downloaded WAV file
+    """
+    out_dir.mkdir(parents=True, exist_ok=True)
+    templ = out_dir / "%(id)s.%(ext)s"
+    
+    cmd = [
+        "yt-dlp",
+        "-x",  # Extract audio
+        "--audio-format", "wav",
+        "--audio-quality", "0",
+        "--force-overwrites",
+        "--no-playlist",
+        "--extract-audio",
+        "--prefer-ffmpeg",
+        "-o", str(templ),
+        url
+    ]
+    
+    try:
+        result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+    except subprocess.CalledProcessError as e:
+        raise Exception(f"Error downloading YouTube video: {e.stderr}")
+    
+    # Find the most recently created WAV file
+    wavs = sorted(out_dir.glob("*.wav"), key=lambda p: p.stat().st_mtime, reverse=True)
+    if not wavs:
+        raise Exception("No WAV file produced by yt-dlp")
+    
+    return wavs[0]
+
+
+def extract_youtube_video_id(url: str) -> Optional[str]:
+    """
+    Extract YouTube video ID from URL
+    
+    Args:
+        url: YouTube URL
+        
+    Returns:
+        Video ID or None if invalid
+    """
+    pattern = r'^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*'
+    match = re.match(pattern, url)
+    if match and len(match.group(7)) == 11:
+        return match.group(7)
+    return None
+
+
+@app.post("/analyze/youtube", response_model=AnalysisResult)
+async def analyze_youtube(request: YoutubeRequest):
+    """
+    Analyze a YouTube video for extremist speech
+    
+    Args:
+        request: YoutubeRequest containing the video URL
+        
+    Returns:
+        AnalysisResult with transcript, labels, and timestamps
+    """
+    
+    if not analyzer:
+        raise HTTPException(
+            status_code=503,
+            detail="Analyzer not initialized. Models may not be loaded."
+        )
+    
+    # Validate YouTube URL
+    video_id = extract_youtube_video_id(request.url)
+    if not video_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid YouTube URL. Please provide a valid YouTube video link."
+        )
+    
+    # Create temporary directory for download
+    temp_dir = None
+    audio_file_path = None
+    
+    try:
+        temp_dir = tempfile.mkdtemp(prefix="youtube_audio_")
+        temp_dir_path = Path(temp_dir)
+        
+        # Download audio
+        audio_file_path = download_youtube_audio(request.url, temp_dir_path)
+        
+        # Analyze the downloaded audio
+        result = analyze_audio_file(str(audio_file_path))
+        
+        return result
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, 
+            detail=f"YouTube analysis failed: {str(e)}"
+        )
+    finally:
+        # Clean up temporary files
+        if temp_dir and os.path.exists(temp_dir):
+            try:
+                shutil.rmtree(temp_dir)
+            except Exception as e:
+                print(f"Warning: Failed to clean up temp directory {temp_dir}: {e}")
+
 
 @app.post("/analyze/batch")
 async def analyze_batch(files: List[UploadFile] = File(...)):

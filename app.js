@@ -1,6 +1,11 @@
 // State management
 let analysisResults = null;
 let uploadedFile = null;
+let youtubeUrl = null;
+let youtubeVideoId = null;
+let currentInputMode = 'file'; // 'file' or 'youtube'
+let ytPlayer = null;
+let syncInterval = null;
 
 // DOM Elements
 const audioFileInput = document.getElementById('audioFile');
@@ -21,6 +26,32 @@ const confidenceThresholdInput = document.getElementById('confidenceThreshold');
 const thresholdValue = document.getElementById('thresholdValue');
 const exportBtn = document.getElementById('exportBtn');
 
+// Input mode toggle elements
+const fileModeBtn = document.getElementById('fileModeBtn');
+const youtubeModeBtn = document.getElementById('youtubeModeBtn');
+const fileUploadSection = document.getElementById('fileUploadSection');
+const youtubeSection = document.getElementById('youtubeSection');
+
+// YouTube elements
+const youtubeUrlInput = document.getElementById('youtubeUrl');
+const loadYoutubeBtn = document.getElementById('loadYoutubeBtn');
+const youtubePlayerContainer = document.getElementById('youtubePlayerContainer');
+const youtubePlayer = document.getElementById('youtubePlayer');
+const youtubeMainPlayerContainer = document.getElementById('youtubeMainPlayerContainer');
+const youtubeMainPlayer = document.getElementById('youtubeMainPlayer');
+
+// Load YouTube IFrame API
+let youtubeAPIReady = false;
+const tag = document.createElement('script');
+tag.src = 'https://www.youtube.com/iframe_api';
+const firstScriptTag = document.getElementsByTagName('script')[0];
+firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+// YouTube API ready callback
+window.onYouTubeIframeAPIReady = function() {
+    youtubeAPIReady = true;
+};
+
 // Event Listeners
 audioFileInput.addEventListener('change', handleFileSelect);
 analyzeBtn.addEventListener('click', analyzeAudio);
@@ -38,6 +69,13 @@ uploadDropzone.addEventListener('dragover', handleDragOver);
 uploadDropzone.addEventListener('dragleave', handleDragLeave);
 uploadDropzone.addEventListener('drop', handleDrop);
 removeFileBtn.addEventListener('click', handleRemoveFile);
+
+// Input mode toggle events
+fileModeBtn.addEventListener('click', () => switchInputMode('file'));
+youtubeModeBtn.addEventListener('click', () => switchInputMode('youtube'));
+
+// YouTube events
+loadYoutubeBtn.addEventListener('click', loadYoutubeVideo);
 
 // Remove focus flash from details/summary elements
 document.addEventListener('DOMContentLoaded', () => {
@@ -133,6 +171,70 @@ function handleRemoveFile(e) {
     analyzeBtn.disabled = true;
 }
 
+// Switch input mode between file and YouTube
+function switchInputMode(mode) {
+    currentInputMode = mode;
+    
+    if (mode === 'file') {
+        // Show file section, hide YouTube section
+        fileUploadSection.classList.remove('hidden');
+        youtubeSection.classList.add('hidden');
+        
+        // Update button styles
+        fileModeBtn.classList.add('active');
+        youtubeModeBtn.classList.remove('active');
+        
+        // Enable analyze if file is uploaded
+        analyzeBtn.disabled = !uploadedFile;
+    } else if (mode === 'youtube') {
+        // Show YouTube section, hide file section
+        fileUploadSection.classList.add('hidden');
+        youtubeSection.classList.remove('hidden');
+        
+        // Update button styles
+        fileModeBtn.classList.remove('active');
+        youtubeModeBtn.classList.add('active');
+        
+        // Enable analyze if YouTube video is loaded
+        analyzeBtn.disabled = !youtubeUrl;
+    }
+}
+
+// Extract YouTube video ID from URL
+function extractYoutubeVideoId(url) {
+    const regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[7].length === 11) ? match[7] : null;
+}
+
+// Load YouTube video
+function loadYoutubeVideo() {
+    const url = youtubeUrlInput.value.trim();
+    
+    if (!url) {
+        alert('Please enter a YouTube URL');
+        return;
+    }
+    
+    const videoId = extractYoutubeVideoId(url);
+    
+    if (!videoId) {
+        alert('Invalid YouTube URL. Please enter a valid YouTube video link.');
+        return;
+    }
+    
+    // Store the URL and video ID
+    youtubeUrl = url;
+    youtubeVideoId = videoId;
+    
+    // Embed the video
+    youtubePlayer.src = `https://www.youtube.com/embed/${videoId}`;
+    youtubePlayerContainer.classList.remove('hidden');
+    
+    // Enable analyze button
+    analyzeBtn.disabled = false;
+}
+
 // Utility to format file size
 function formatFileSize(bytes) {
     if (bytes === 0) return '0 Bytes';
@@ -144,14 +246,20 @@ function formatFileSize(bytes) {
 
 // Analyze audio
 async function analyzeAudio() {
-    if (!uploadedFile) {
-        alert('Please select an audio file first');
-        return;
-    }
-
     const apiUrl = apiUrlInput.value.trim();
     if (!apiUrl) {
         alert('Please enter an API endpoint');
+        return;
+    }
+
+    // Check if we have input
+    if (currentInputMode === 'file' && !uploadedFile) {
+        alert('Please select an audio file first');
+        return;
+    }
+    
+    if (currentInputMode === 'youtube' && !youtubeUrl) {
+        alert('Please load a YouTube video first');
         return;
     }
 
@@ -160,13 +268,27 @@ async function analyzeAudio() {
     loadingIndicator.classList.remove('hidden');
 
     try {
-        const formData = new FormData();
-        formData.append('file', uploadedFile);
+        let response;
+        
+        if (currentInputMode === 'youtube') {
+            // YouTube analysis mode
+            response = await fetch(`${apiUrl}/analyze/youtube`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ url: youtubeUrl })
+            });
+        } else {
+            // File upload mode
+            const formData = new FormData();
+            formData.append('file', uploadedFile);
 
-        const response = await fetch(`${apiUrl}/analyze`, {
-            method: 'POST',
-            body: formData
-        });
+            response = await fetch(`${apiUrl}/analyze`, {
+                method: 'POST',
+                body: formData
+            });
+        }
 
         if (!response.ok) {
             const errorText = await response.text();
@@ -208,6 +330,16 @@ function displayResults(results) {
         displayEmotionAnalysis(results.emotion_analysis);
     } else {
         emotionContainer.classList.add('hidden');
+    }
+
+    // If YouTube mode, show main player and initialize sync (do this last)
+    if (currentInputMode === 'youtube' && youtubeVideoId) {
+        youtubeMainPlayerContainer.classList.remove('hidden');
+        // Use setTimeout to ensure DOM is fully updated before initializing player
+        setTimeout(() => initializeYoutubePlayer(youtubeVideoId), 100);
+    } else {
+        youtubeMainPlayerContainer.classList.add('hidden');
+        stopTranscriptSync();
     }
 }
 
@@ -264,10 +396,12 @@ function displayTranscript(results) {
     // Sort segments by start time
     const sortedSegments = [...segments].sort((a, b) => (a.start || 0) - (b.start || 0));
 
-    // Generate colored HTML
-    const html = sortedSegments.map(segment => {
+    // Generate colored HTML with data attributes for timing
+    const html = sortedSegments.map((segment, index) => {
         const text = segment.text || '';
         const label = segment.label || 'unknown';
+        const start = segment.start || 0;
+        const end = segment.end || 0;
         
         let className;
         if (label === 'hate') {
@@ -278,7 +412,7 @@ function displayTranscript(results) {
             className = 'segment-safe';
         }
         
-        return `<span class="${className}">${escapeHtml(text)}</span>`;
+        return `<span class="${className}" data-segment-index="${index}" data-start="${start}" data-end="${end}">${escapeHtml(text)}</span>`;
     }).join(' ');
 
     transcriptDiv.innerHTML = html;
@@ -452,11 +586,205 @@ function exportResults() {
     
     const link = document.createElement('a');
     link.href = url;
-    link.download = `analysis_${uploadedFile ? uploadedFile.name : 'results'}.json`;
+    
+    // Generate filename based on input mode
+    let filename;
+    if (currentInputMode === 'file' && uploadedFile) {
+        filename = `analysis_${uploadedFile.name}.json`;
+    } else if (currentInputMode === 'youtube' && youtubeUrl) {
+        const videoId = extractYoutubeVideoId(youtubeUrl);
+        filename = `analysis_youtube_${videoId || 'video'}.json`;
+    } else {
+        filename = 'analysis_results.json';
+    }
+    
+    link.download = filename;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+}
+
+// Initialize YouTube player with IFrame API
+function initializeYoutubePlayer(videoId) {
+    console.log('Initializing YouTube player with video ID:', videoId);
+    
+    // Destroy existing player if any
+    if (ytPlayer && ytPlayer.destroy) {
+        try {
+            ytPlayer.destroy();
+        } catch (e) {
+            console.log('Error destroying previous player:', e);
+        }
+        ytPlayer = null;
+    }
+    
+    // Stop any existing sync
+    stopTranscriptSync();
+    
+    // Clear the container and ensure it exists
+    const container = document.getElementById('youtubeMainPlayer');
+    if (!container) {
+        console.error('YouTube player container not found');
+        return;
+    }
+    container.innerHTML = '';
+    
+    // Wait for API to be ready
+    const initPlayer = () => {
+        try {
+            console.log('Creating YouTube player...');
+            ytPlayer = new YT.Player('youtubeMainPlayer', {
+                height: '100%',
+                width: '100%',
+                videoId: videoId,
+                playerVars: {
+                    'enablejsapi': 1,
+                    'origin': window.location.origin,
+                    'rel': 0,
+                    'modestbranding': 1
+                },
+                events: {
+                    'onReady': onPlayerReady,
+                    'onStateChange': onPlayerStateChange,
+                    'onError': onPlayerError
+                }
+            });
+        } catch (error) {
+            console.error('Error creating YouTube player:', error);
+            // Fallback: create a simple iframe
+            container.innerHTML = `<iframe src="https://www.youtube.com/embed/${videoId}?enablejsapi=1" 
+                frameborder="0" 
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                allowfullscreen
+                style="width: 100%; height: 100%;"></iframe>`;
+        }
+    };
+    
+    if (youtubeAPIReady && window.YT && window.YT.Player) {
+        initPlayer();
+    } else {
+        console.log('Waiting for YouTube API to load...');
+        // Wait for API to load with timeout
+        let attempts = 0;
+        const maxAttempts = 50; // 5 seconds
+        const checkAPI = setInterval(() => {
+            attempts++;
+            if (youtubeAPIReady && window.YT && window.YT.Player) {
+                console.log('YouTube API ready!');
+                clearInterval(checkAPI);
+                initPlayer();
+            } else if (attempts >= maxAttempts) {
+                console.warn('YouTube API timeout, using fallback iframe');
+                clearInterval(checkAPI);
+                // Fallback: create a simple iframe
+                container.innerHTML = `<iframe src="https://www.youtube.com/embed/${videoId}?enablejsapi=1" 
+                    frameborder="0" 
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                    allowfullscreen
+                    style="width: 100%; height: 100%;"></iframe>`;
+            }
+        }, 100);
+    }
+}
+
+// YouTube player ready callback
+function onPlayerReady(event) {
+    console.log('YouTube player ready');
+    // Player is ready, sync will start when playing
+}
+
+// YouTube player state change callback
+function onPlayerStateChange(event) {
+    console.log('Player state changed:', event.data);
+    // YT.PlayerState.PLAYING = 1
+    if (event.data === 1) {
+        startTranscriptSync();
+    } else {
+        stopTranscriptSync();
+    }
+}
+
+// YouTube player error callback
+function onPlayerError(event) {
+    console.error('YouTube player error:', event.data);
+    // Common error codes:
+    // 2 - invalid parameter
+    // 5 - HTML5 player error
+    // 100 - video not found
+    // 101, 150 - video not allowed to be played in embedded players
+}
+
+// Start syncing transcript with video playback
+function startTranscriptSync() {
+    if (syncInterval) return; // Already running
+    
+    syncInterval = setInterval(() => {
+        if (ytPlayer && ytPlayer.getCurrentTime) {
+            const currentTime = ytPlayer.getCurrentTime();
+            updateTranscriptHighlight(currentTime);
+        }
+    }, 100); // Update every 100ms for smooth syncing
+}
+
+// Stop transcript sync
+function stopTranscriptSync() {
+    if (syncInterval) {
+        clearInterval(syncInterval);
+        syncInterval = null;
+    }
+    
+    // Remove all active highlights
+    const transcriptDiv = document.getElementById('transcript');
+    if (transcriptDiv) {
+        const activeSegments = transcriptDiv.querySelectorAll('.segment-active');
+        activeSegments.forEach(seg => seg.classList.remove('segment-active'));
+    }
+}
+
+// Update transcript highlight based on current time
+function updateTranscriptHighlight(currentTime) {
+    const transcriptDiv = document.getElementById('transcript');
+    if (!transcriptDiv) return;
+    
+    const segments = transcriptDiv.querySelectorAll('[data-start][data-end]');
+    let activeSegment = null;
+    let segmentChanged = false;
+    
+    // Find the segment that contains the current time
+    segments.forEach(segment => {
+        const start = parseFloat(segment.dataset.start);
+        const end = parseFloat(segment.dataset.end);
+        
+        if (currentTime >= start && currentTime <= end) {
+            activeSegment = segment;
+            if (!segment.classList.contains('segment-active')) {
+                segment.classList.add('segment-active');
+                segmentChanged = true;
+            }
+        } else {
+            if (segment.classList.contains('segment-active')) {
+                segment.classList.remove('segment-active');
+            }
+        }
+    });
+    
+    // Auto-scroll to keep active segment in view (Spotify-like)
+    if (activeSegment && segmentChanged) {
+        // Calculate position to center the active segment
+        const containerHeight = transcriptDiv.clientHeight;
+        const segmentOffsetTop = activeSegment.offsetTop;
+        const segmentHeight = activeSegment.offsetHeight;
+        
+        // Center the segment vertically in the container
+        const targetScrollTop = segmentOffsetTop - (containerHeight / 2) + (segmentHeight / 2);
+        
+        // Smooth scroll to position
+        transcriptDiv.scrollTo({
+            top: Math.max(0, targetScrollTop),
+            behavior: 'smooth'
+        });
+    }
 }
 
 // Utility function to escape HTML
