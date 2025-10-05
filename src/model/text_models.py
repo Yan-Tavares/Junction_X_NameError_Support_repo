@@ -1,6 +1,8 @@
 import numpy as np, torch
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, pipeline
 import os, sys
+import yaml
+import json
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 if PROJECT_ROOT not in sys.path:
@@ -100,35 +102,87 @@ class ZeroShotExtremismNLI(BaseSentimentModel):
 
 
 class HeuristicLexiconModel(BaseSentimentModel):
-    def __init__(self, lexicon=None):
+    def __init__(self, lexicon_file="definition/lexicon.yaml"):
+        """
+        Initialize the HeuristicLexiconModel with either a lexicon file or direct lexicon dict.
+        
+        Args:
+            lexicon_file (str): Path to YAML file containing patterns and thresholds.
+                               Relative paths are resolved from PROJECT_ROOT.
+            lexicon (dict): Direct dictionary of {pattern: weight} for backwards compatibility.
+                           Ignored if lexicon_file is provided.
+        """
         super().__init__()
         self.input_type = "text"
         self.labels = LABELS
-        # {pattern: weight}
-        self.lex = lexicon or {
-            r"\b(islamic state|isis|daesh|al[- ]qaeda|kkk|nazi|white power)\b": 1.0,
-            r"\b(heil hitler|14/88|14 words|blood and soil)\b": 1.2,
-            r"\b(caliphate|jihadist)\b": 0.6,
-            r"\b(gas the [^\s]+|ethnic cleansing|race war)\b": 1.3,
-        }
+        
+        # Load lexicon from file or use provided dictionary
+        self._load_from_file(lexicon_file)
+    
+    def _load_from_file(self, lexicon_file):
+        """Load lexicon patterns from YAML or JSON file."""
+        if not os.path.isabs(lexicon_file):
+            lexicon_file = os.path.join(PROJECT_ROOT, lexicon_file)
+        
+        # Determine file format and load
+        with open(lexicon_file, 'r', encoding='utf-8') as f:
+            config = yaml.safe_load(f)
+        
+        # Build pattern dict
+        self.lex = {}
+        for item in config.get('patterns', []):
+            self.lex[item['pattern']] = item['weight']
+
+    
+    def calculate_probs(self, score):
+        """Map lexicon score to probabilities using a continuous mapping.
+        
+        Args:
+            score: The accumulated lexicon score
+            
+        Returns:
+            Array of [non_extremist, potentially_extremist, extremist] probabilities
+            
+        The mapping works as follows:
+        - non_extremist (safe): scales inversely with score (1 / (1 + score))
+        - potentially_extremist: fixed at 1.0
+        - extremist: scales directly with score
+        All values are then normalized to sum to 1.0
+        """
+        # Element 0 (safe): inverse scaling with score
+        # Using 1/(1+score) to get smooth decay from 1.0 to near 0
+        safe = 1.0 / (score + 0.5)
+        
+        # Element 1 (potentially): fixed at 1.0
+        potentially = 1.0
+        
+        # Element 2 (extremist): direct scaling with score
+        extremist = -1.0 / (score - 2.5)
+        
+        # Normalize so they sum to 1.0
+        total = safe + potentially + extremist
+        if total > 0:
+            return np.array([safe / total, potentially / total, extremist / total], dtype=np.float32)
+        else:
+            # Fallback if score is exactly 0
+            return np.array([1.0, 0.0, 0.0], dtype=np.float32)
+
 
     def predict(self, texts):
-        # Returns [non_extremist, potentially_extremist, extremist]
+        """
+        Returns probability distribution [non_extremist, potentially_extremist, extremist]
+        for each input text based on lexicon pattern matching.
+        """
+        import re
         P = []
         for t in texts:
             t_low = t.lower()
             score = 0.0
             for pat, w in self.lex.items():
-                if __import__("re").search(pat, t_low):
+                if re.search(pat, t_low):
                     score += w
-            # Map lexicon score to probabilities [non, potentially, extremist]
-            if score >= 2.0:
-                p = [0.05, 0.30, 0.65]  # High score -> extremist
-            elif score >= 1.0:
-                p = [0.15, 0.55, 0.30]  # Medium score -> potentially
-            elif score >= 0.4:
-                p = [0.55, 0.35, 0.10]  # Low score -> mix
-            else:
-                p = [0.85, 0.10, 0.05]  # No match -> non_extremist
+            
+            # Map lexicon score to probabilities using continuous function
+            p = self.calculate_probs(score)
             P.append(p)
         return np.asarray(P, dtype=np.float32)

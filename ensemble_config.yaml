@@ -1,47 +1,28 @@
-ensemble: 
-  ...
-
+ensemble:
+  weights:
+    toxicity: 0.3096755131811168
+    zero_shot_extremism: 0.16334770581764602
+    heuristic_lexicon: 0.41740495048057796
+  bias:
+  - -0.2102141133786453
+  - 0.00621867824162236
+  - 0.3209595700772042
+  metrics:
+    accuracy: 0.36065573770491804
+    f1_macro: 0.2365319865319865
+    f1_weighted: 0.2729342606391787
+  optimization:
+    weight_decay: 0.2
+    description: Regularization strength towards equal weights (1/n) and zero bias
 models:
-  # ============================
-  # Sentiment Model Ensemble
-  # ============================
-  # Four specialized text classifiers for hate speech detection
-  # Each model has different strengths and weighting strategies
-  
-  # # 1. HateXplain
-  # hatexplain:
-  #   class: HateXplainModel
-  #   args:
-  #     model_path: models/hatexplain-roberta-mini
-  
-  # 2. Toxicity Model - Conservative toxicity detection (reduces false positives)
   toxicity:
     class: ToxicityModel
     args:
       model_path: unitary/toxic-bert
-
-  # 3. Zero-Shot Extremism NLI - Zero-shot model for extremism detection
   zero_shot_extremism:
     class: ZeroShotExtremismNLI
     args:
       model_path: facebook/bart-large-mnli
-
-  # 4. Heuristic Lexicon Model - Rule-based model for hate speech detection
   heuristic_lexicon:
     class: HeuristicLexiconModel
     args: {}
-
-  # ============================
-  # Dummy Models (for testing)
-  # ============================
-  # Uncomment to test ensemble behavior with dummy predictors
-  
-  # dummy_1:
-  #   class: DummyModel
-  #   args:
-  #     seed: 0
-  
-  # dummy_2:
-  #   class: DummyModel
-  #   args:
-  #     seed: 42
