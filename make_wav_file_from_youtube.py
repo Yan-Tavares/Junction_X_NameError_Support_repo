@@ -51,7 +51,7 @@ def download_youtube_audio(youtube_url, output_path='data/youtube_audio.m4a'):
     return output_path
 
 #############################
-file_or_link = 'https://www.youtube.com/watch?v=v8SargFU548'
+file_or_link = 'https://www.youtube.com/watch?v=XUSiCEx3e-0'
 #############################
 
 audio_file = download_youtube_audio(file_or_link, 'data/youtube_audio.m4a')

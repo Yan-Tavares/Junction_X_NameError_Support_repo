@@ -4,18 +4,18 @@ import librosa
 import numpy as np
 from transformers import AutoModelForAudioClassification, Wav2Vec2FeatureExtractor
 from transformers import Wav2Vec2FeatureExtractor, Wav2Vec2ForSequenceClassification
-from faster_whisper import WhisperModel
-from GPT_api import analyze_extremism
+from GPT_api import analyze_extremism, summarize_text
 import json
 import os
+from pathlib import Path
 
 class VibeCheckerModel:
     """
     LLM-based extremism classifier that uses audio prosodic features.
     Compatible with ensemble.py architecture.
     """
-    
-    def __init__(self, device=None):
+
+    def __init__(self, device=None, tuned_emotion_model_dir="fine_tuned_emotion_model"):
         """
         Initialize the Vibe Checker model with emotion detection.
         
@@ -37,14 +37,64 @@ class VibeCheckerModel:
         
         # This model processes audio segments
         self.input_type = "audio"
+
+        self.emotion_model = AutoModelForAudioClassification.from_pretrained(
+            tuned_emotion_model_dir,
+            local_files_only=True
+        ).to(self.device)
         
-        # Load emotion model for audio analysis
-        MODEL_DIR = "./models/fine_tuned_emotion_model"
-        self.emotion_model = AutoModelForAudioClassification.from_pretrained(MODEL_DIR).to(self.device)
-        self.emotion_feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained(MODEL_DIR)
+        self.emotion_feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained(
+            tuned_emotion_model_dir,
+            local_files_only=True
+        )
+
+    def transcribe_audio(self, audio_path, language="en"):
+        """
+        Transcribe audio using Whisper with smart segmentation.
         
-        print("✓ Vibe_Checker_model loaded successfully")
-    
+        Args:
+            audio_path: Path to audio file (preprocessed)
+        
+        Returns:
+            tuple: (full_transcript, list of segment dicts with start/end/text)
+        """
+        from faster_whisper import WhisperModel
+
+        print("🎤 Transcribing audio...")
+        
+        # Initialize Whisper model
+        compute_type = "float16" if self.device == "cuda" else "int8"
+        whisper_model = WhisperModel(
+            "medium",
+            device=self.device,
+            compute_type=compute_type,
+            download_root=None
+        )
+        
+        # Transcribe with Whisper
+        segments, _ = whisper_model.transcribe(
+            str(audio_path),
+            language= language,
+            task="transcribe",
+        )
+
+        segments = list(segments)
+        # Process segments and add audio_segment attribute
+        for segment in segments:
+            # Load the audio segment based on start and end times
+            duration = segment.end - segment.start
+            audio_segment, _ = librosa.load(
+                str(audio_path),
+                sr=16000,
+                offset=segment.start,
+                duration=duration
+            )
+            
+            # Add audio_segment as an attribute to the segment object
+            segment.audio_segment = audio_segment
+
+        return segments
+
     def extract_prosodic_features(self, signal, sr=16000):
         """Extract prosodic features from audio signal."""
         features = {}
@@ -148,63 +198,54 @@ class VibeCheckerModel:
         
         print(f"🎤 Processing {n_segments} segments from: {audio_path}")
         
+        # First loop: Add augmented text to all segments
         for i, segment in enumerate(segments):
-            try:
-                # Handle both dict and object (Segment) formats
-                if isinstance(segment, dict):
-                    start = segment.get('start', 0)
-                    end = segment.get('end', start + 5)
-                    text = segment.get('text', '')
-                else:
-                    # Segment object with attributes
-                    start = getattr(segment, 'start', 0)
-                    end = getattr(segment, 'end', start + 5)
-                    text = getattr(segment, 'text', '')
-                
-                if not text:
-                    # No text, assume normal
-                    predictions[i] = [1.0, 0.0, 0.0]
-                    continue
-                
-                # Load audio segment
-                duration = end - start
-                audio, sr = librosa.load(audio_path, sr=16000, offset=start, duration=duration)
-                
-                # Get emotion and prosodic features
-                emotion, intensity = self.classify_emotion(audio, sr=sr)
-                prosodic_features = self.extract_prosodic_features(audio, sr=sr)
-                prosodic_categories = self.categorize_prosodic_features(prosodic_features)
-                
-                # Create augmented text
-                augmented_text = (
-                    f"{text} "
-                    f"[emotion={emotion}, emotion confidence={intensity:.2f}, "
-                    f"pitch={prosodic_categories['pitch']}, "
-                    f"emphasis={prosodic_categories['emphasis']}, "
-                    f"pace={prosodic_categories['pace']}]"
-                )
-                
-                # Analyze with LLM
-                llm_result = analyze_extremism(augmented_text)
-                
-                # Use LLM's probability distribution directly
-                if llm_result.get('validation_status') == 'PASSED':
-                    # LLM returns [p_safe, p_uncertain, p_extremist]
-                    # We need [p_normal, p_offensive, p_extremist]
-                    # Map: safe→normal, uncertain→offensive, extremist→extremist
-                    predictions[i] = [
-                        llm_result.get('p_safe', 0.7),      # p_normal
-                        llm_result.get('p_uncertain', 0.2),  # p_offensive
-                        llm_result.get('p_extremist', 0.1)   # p_extremist
-                    ]
-                else:
-                    # LLM failed, return neutral prediction
-                    print(f"⚠️ LLM failed for segment {i}: {llm_result.get('error', 'Unknown error')}")
-                    predictions[i] = [0.7, 0.2, 0.1]  # Slightly cautious default
-                    
-            except Exception as e:
-                print(f"⚠️ Error processing segment {i}: {e}")
-                predictions[i] = [0.7, 0.2, 0.1]  # Default to mostly normal
+            start = segment.start
+            end = segment.end
+            text = segment.text
+            
+            # Load audio segment
+            duration = end - start
+            audio, sr = librosa.load(audio_path, sr=16000, offset=start, duration=duration)
+            
+            # Get emotion and prosodic features
+            emotion, intensity = self.classify_emotion(audio, sr=sr)
+            prosodic_features = self.extract_prosodic_features(audio, sr=sr)
+            prosodic_categories = self.categorize_prosodic_features(prosodic_features)
+            
+            # Create augmented text
+            augmented_text = (
+                f"{text} "
+                f"[emotion={emotion}, emotion confidence={intensity:.2f}, "
+                f"pitch={prosodic_categories['pitch']}, "
+                f"emphasis={prosodic_categories['emphasis']}, "
+                f"pace={prosodic_categories['pace']}]"
+            )
+
+            segment.augmented_text = augmented_text  # Store for reference
+        
+        # Get context summary once
+        context_summary = summarize_text(segments)
+        print('Summary of all segments for context:')
+        print(context_summary)
+
+        # Analyze all segments with LLM (returns list of results)
+        llm_results = analyze_extremism(segments, context_summary)
+        
+        # Process results for each segment
+        for i, llm_result in enumerate(llm_results):
+            if llm_result.get('validation_status') == 'PASSED':
+                # LLM returns [p_safe, p_uncertain, p_extremist]
+                predictions[i] = [
+                    llm_result.get('p_safe', 0.7),      # p_normal
+                    llm_result.get('p_uncertain', 0.2),  # p_offensive
+                    llm_result.get('p_extremist', 0.1)   # p_extremist
+                ]
+            else:
+                # LLM failed, return neutral prediction
+                print(f"⚠️ LLM failed for segment {i}: {llm_result.get('error', 'Unknown error')}")
+                predictions[i] = [0.7, 0.2, 0.1]  # Slightly cautious default
+            
         
         # Normalize to ensure probabilities sum to 1
         row_sums = predictions.sum(axis=1, keepdims=True)

@@ -2,17 +2,27 @@ import json
 import re
 from pydantic import BaseModel, Field, field_validator
 from typing import Literal, Optional, Union
-from trustcall import create_extractor
 from langchain_ollama import ChatOllama
 
-# Make sure to intall ollama via de website
+########### Instructions to be able to use Ollama ####################
+# Make sure to intall ollama via the website
 # Then restart the VSCode 
-# pull the model via ollama pull llama3.2
+# pull the model via > ollama pull llama3.2:1b or > ollama pull llama3.2:3b
+###################
+
 
 # Initialize the LangChain Ollama model
 # Models that support tool calling: llama3.1, llama3.2, mistral, qwen2.5, command-r
-MODEL_NAME = "llama3.2"  # or "mistral", "qwen2.5:3b" for smaller size
-llm = ChatOllama(model=MODEL_NAME, temperature=0.3)
+MODEL_NAME = "llama3.1:8b"  # or "mistral", "qwen2.5:3b" for smaller size
+
+print(f"Loading LLM model: {MODEL_NAME}...")
+llm = ChatOllama(
+    model=MODEL_NAME, 
+    temperature=0,
+    seed=42,
+    num_gpu=1 
+)
+print(f"LLM model loaded successfully.")
 
 # Pydantic model for output validation (trustcall uses this)
 class ExtremismAnalysisOutput(BaseModel):
@@ -47,162 +57,198 @@ class ExtremismAnalysisOutput(BaseModel):
         if not (0.95 <= total <= 1.05):  # Allow small floating point errors
             raise ValueError(f'Probabilities must sum to ~1.0, got {total}')
 
-# Create trustcall extractor - this wraps the LLM and enforces structured output
-extractor = create_extractor(
-    llm,
-    tools=[ExtremismAnalysisOutput],
-    tool_choice="ExtremismAnalysisOutput"
-)
+# Use LangChain's native structured output instead of trustcall (more reliable)
+extractor = llm.with_structured_output(ExtremismAnalysisOutput)
 
 
-SYSTEM_PROMPT = """
+PROMPT_FOR_CONTEXT_ANALYSIS = """
+You are an analytical, and critical agent.\n
+You will receive a transcribed text from a spoken audio.\n
+You must read the provided text carefully and summarize it in the maximum of 3 sentences.\n
+Your task is to provide a context to another agent who will analyze individual sentences for extremist speech.\n
+So you must give enough context that clarify if the entire text seems to promot extremist views or not.\n 
+
+** CRITICAL**:\n
+- Read it literally, do not try to assume hidden meanings.\n
+- ONLY write the summary, nothing else. \n
+- Do NOT introduce you or the summary. \n
+- Do NOT ask for further clarifications.\n
+- Do NOT give your opinion about if it is extremist or not, focus on the content only.\n
+- Keep the summary very brief (max 3 sentences)\n
+"""
+
+PROMPT_FOR_EXTREMISM_ANALYSIS = """
 You are an analytical, empathetic, and critical agent tasked with evaluating individual spoken sentences for signs of extremist speech. 
 You are not biased toward over-flagging or under-flagging: your role is to weigh the evidence carefully and provide a reflective judgment.
-
-You receive:
-1. The spoken sentence (transcribed).
-2. The detected tone/emotion label (e.g., angry, sad, happy, etc.).
-3. The emotion confidence score (e.g., 0.0-1.0).
-4. Prosodic features (pitch, emphasis, pace).
-
-Your task: **Provide THREE probability scores** that sum to 1.0:
-- **p_safe**: Probability this is safe/normal content (0.0-1.0)
-- **p_uncertain**: Probability this is uncertain/offensive but not clearly extremist (0.0-1.0)  
-- **p_extremist**: Probability this is extremist content (0.0-1.0)
-
-Guidelines:
-- Interpret the sentence considering multiple possible speaker intentions, audiences, and cultural contexts.
-- Be self-aware and reflective: vague or awkward statements may be ignorance, casual stereotyping, or bad phrasing (→ uncertain).
-- Extremist speech should be recognized when it is explicitly derogatory, exclusionary, or promoting hostility against a group.
-- Consider how tone, intensity, and prosodic features affect interpretation.
-
-**Prosodic Feature Patterns:**
-
-| Tone | Typical Pattern | Classification Hint |
-|------|----------------|-------------------|
-| **Sarcasm** | pitch=high + emphasis=high + contradictory words + emotion=neutral | Often safer than literal interpretation |
-| **Playfulness** | pitch=medium/high + emphasis=high + pace=fast | Usually safe unless content is clearly hostile |
-| **Disbelief** | pitch=high OR low + pace=slow + questioning | Often uncertain, rarely extremist |
-| **Serious** | pitch=low + emphasis=low + pace=moderate/slow | Take literal meaning more seriously |
-| **Anger** | pitch=high + emphasis=high + pace=fast + emotion=angry | Higher chance of extremism if targeting groups |
-| **Thoughtful** | pitch=low + emphasis=low/medium + pace=slow | Usually safe or uncertain |
+\n
+You receive:\n
+1. Short summary of the entire audio.\n
+2. The spoken sentence (transcribed).\n
+3. The detected tone/emotion label (e.g., angry, sad, happy, etc.).\n
+4. The emotion confidence score (e.g., 0.0-1.0).\n
+5. Prosodic features (pitch, emphasis, pace).\n
+\n
+**Definition of extremism**:\n
+A speech is extremist if it explicitly or implicitly falls into one or more of these categories:\n
+- 1 Negate or destroy the fundamental rights and freedoms of others; or \n
+- 2 undermine, overturn or replace democratic rights\n
+- 3 intentionally create a permissive environment for others to achieve the results in (1) or (2).\n
+- 4 distributes disinformation. (e.g, claims that are not common sense and are not supported by evidence)\n
+\n
+**Your task:**\n
+**Provide THREE probability scores** for the TARGET SENTENCE that sum to 1.0:\n
+- **p_normal**: Probability this is safe/normal content (0.0-1.0).\n
+- **p_uncertain**: Probability this is uncertain/offensive but not clearly extremist (0.0-1.0).\n 
+- **p_extremist**: Probability this is extremist content (0.0-1.0).\n
+\n
+Guidelines:\n
+- Use the context provided to understand the speaker perspective, but **FOCUS ON THE TARGET SENTENCE**\n
+- Even when the context is extremist, the target sentence might be safe/normal\n
+- Be self-aware and reflective: vague or awkward statements may be ignorance, casual stereotyping, or bad phrasing (→ uncertain).\n
+- Consider how emotion and prosodic features affect interpretation.\n
+\n
 
 **Decision Process:**
-
-1. **High p_safe (0.7-1.0)**: 
+\n
+1. **High p_normal (0.7-1.0)**: 
    - Clearly non-hostile content
    - Neutral or positive statements
    - Sarcasm/jokes that are obviously not serious
-   
-2. **High p_uncertain (0.5-0.8)**:
+\n
+2. **High p_offensive (0.5-0.8)**:
    - Ambiguous statements that could be interpreted multiple ways
    - Casual stereotypes or insensitive comments
    - Content that's offensive but not promoting violence/hatred
    - Borderline cases where context is unclear
-   
+\n 
 3. **High p_extremist (0.5-1.0)**:
    - Explicit derogatory language toward groups
    - Calls for exclusion, harm, or denial of rights
    - Promoting hostility based on identity (race, religion, gender, etc.)
    - Clear hate speech
-
-**CRITICAL**: The three probabilities MUST sum to 1.0 (or very close, like 0.99-1.01).
+\n
+**CRITICAL**: \n
+- The three probabilities MUST sum to 1.0 (or very close, like 0.99-1.01).\n
+- Only answer in the following format (no explanations, no extra text):\n
+- - p_safe=0.XX, p_uncertain=0.XX, p_extremist=0.XX\n
 
 **Examples:**
 
-Example 1: "I think everyone deserves equal rights. [emotion=calm, emotion confidence=0.8, pitch=medium, emphasis=low, pace=moderate]"
-→ p_safe=0.95, p_uncertain=0.05, p_extremist=0.0
+Example 1:
+SHORT SUMMARY OF ENTIRE AUDIO: \n
+The speaker addresses the problems regarding inequality. He points out how racism and discrimination can severely harm an individual's sense of belonging and self-worth, ultimately impacting their ability to advocate for equality and human rights by stating that.\n
+TARGET SENTENCE:\n
+START >>I think everyone deserves equal rights [emotion=sad, emotion confidence=0.74, pitch=low, emphasis=low/medium, pace=slow] <<END \n
+OUTPUT:\n 
+p_safe=0.95, p_uncertain=0.05, p_extremist=0.0\n
 
-Example 2: "Those people are a bit weird, honestly. [emotion=neutral, emotion confidence=0.6, pitch=high, emphasis=high, pace=fast]"
-→ p_safe=0.3, p_uncertain=0.65, p_extremist=0.05
-
-Example 3: "They should be removed from our country. [emotion=angry, emotion confidence=0.9, pitch=high, emphasis=high, pace=moderate]"
-→ p_safe=0.05, p_uncertain=0.15, p_extremist=0.8
-
-Example 4: "Oh sure, they're TOTALLY gonna save the world... [emotion=neutral, emotion confidence=0.7, pitch=high, emphasis=high, pace=moderate]"
-(Sarcastic tone detected → likely not serious threat)
-→ p_safe=0.7, p_uncertain=0.25, p_extremist=0.05
 """
+# Example 2:
+# SHORT SUMMARY OF ENTIRE AUDIO:
+# The speaker discusses the challenges of integrating different cultures and expresses frustration about recent changes in the neighborhood, mentioning concerns about safety and traditions being lost.
+# SENTENCE TO ANALYZE THE EXTREMISM:
+# START >>These people are ruining our community and should go back to where they came from [emotion=anger, emotion confidence=0.74, pitch=high, emphasis=high, pace=fast] << END
+# OUTPUT:\n
+# p_safe=0.05, p_uncertain=0.15, p_extremist=0.8
 
-def analyze_extremism(augmented_text, context_before=None, context_after=None):
+# Example 3:
+# SHORT SUMMARY OF ENTIRE AUDIO:
+# The speaker jokes about stereotypes in movies, using exaggerated voices and making it clear they are not being serious, and then comments on how media can influence perceptions.
+# SENTENCE TO ANALYZE THE EXTREMISM:
+# START >>Oh sure, all villains have accents, right? [emotion=neutral, emotion confidence=0.68, pitch=high, emphasis=high, pace=moderate]<< END
+# OUTPUT:\n
+# p_safe=0.7, p_uncertain=0.25, p_extremist=0.05
+
+
+#
+# **Prosodic Feature Patterns:**
+# |------|----------------|
+# | **Sarcasm** | emotion=neutral + pitch=high + emphasis=high + contradictory words|
+# | **Playfulness** | emotion=happy OR anger + pitch=medium/high + emphasis=high + pace=fast/moderate |
+# | **Disbelief** | pitch=high OR low + pace=slow + questioning words |
+# | **Serious** | emotion=neutral + pitch=low + emphasis=low + pace=moderate/slow |
+# | **Excitement** | emotion=happy + pitch=high + emphasis=high + pace=fast +  |
+# | **Boredom** | emotion=neutral + pitch=low + emphasis=low + pace=slow +  |
+# | **Anger** | emotion=angry + pitch=high + emphasis=high + pace=fast  |
+# | **Thoughtful** | emotion=neutral + pitch=low + emphasis=low/medium + pace=slow |
+
+def summarize_text(segments):
+    # Build context section if provided
+    full_text = " ".join([segment.text for segment in segments])
+    print(full_text)
+    context_prompt = f"""
+    {PROMPT_FOR_CONTEXT_ANALYSIS}
+    Text to summarize:
+    {full_text}
+    """
+    try:
+        context_summary = (llm.invoke(context_prompt)).content
+    except Exception as e:
+        context_summary = f"Failed to generate summary: {str(e)}"
+
+    return context_summary
+    
+def analyze_extremism(segments, context_summary):
     """
     Run extremist analysis with augmented text containing prosodic features.
+    Analyzes all segments and returns a list of results.
     
-    Expected format: "Text here [emotion=neutral, intensity=0.42, pitch=high, emphasis=high, pace=moderate]"
-    context_before/after: list of augmented texts for context (optional)
+    Example format: "Text here [emotion=neutral, intensity=0.42, pitch=high, emphasis=high, pace=moderate]"
     """
-    # Build context section if provided
-    context_section = ""
-    if context_before or context_after:
-        context_section = "\n\nThe target segment and the surrounding context (the previous and following segments are for reference only, DO NOT evaluate these, only the one marked as target segment):\n"
-        if context_before:
-            for i, ctx in enumerate(context_before, 1):
-                context_section += f"[Previous -{len(context_before) - i + 1}] {ctx}\n"
-        
-        context_section += f"\n>>> TARGET SEGMENT TO EVALUATE >>>\n{augmented_text}\n<<< END TARGET SEGMENT <<<\n"
-        
-        if context_after:
-            for i, ctx in enumerate(context_after, 1):
-                context_section += f"[Following +{i}] {ctx}\n"
-    else:
-        context_section = f"\nTarget segment:\n{augmented_text}"
     
-    prompt = f"""{SYSTEM_PROMPT}
-
-{context_section}
-
-Evaluate ONLY the target segment marked above, considering prosodic features and surrounding context.
-"""
-
-    # Use trustcall extractor - automatically enforces schema validation
-    try:
-        response = extractor.invoke(prompt)
+    results = []
+    
+    for segment in segments:
+        # Get the augmented text from the segment
+        augmented_text = segment.augmented_text
         
-        # trustcall returns structured response in 'responses' key
-        if response and "responses" in response and len(response["responses"]) > 0:
-            validated_data = response["responses"][0]
+        prompt = f"""{PROMPT_FOR_EXTREMISM_ANALYSIS}
+        SHORT SUMMARY OF ENTIRE AUDIO:\n
+        {context_summary}\n
+        SENTENCE TO ANALYZE THE EXTREMISM:\n
+        START >> {augmented_text} << END
+        OUTPUT:
+        """
+
+        # Use LangChain's structured output - automatically enforces schema validation
+        try:
+            response = extractor.invoke(prompt)
             
-            # Convert to dict if it's a Pydantic model
-            if hasattr(validated_data, 'model_dump'):
-                result = validated_data.model_dump()
+            # LangChain's with_structured_output returns the Pydantic model directly
+            if hasattr(response, 'model_dump'):
+                result = response.model_dump()
             else:
-                result = dict(validated_data)
+                result = dict(response)
             
             result["validation_status"] = "PASSED"
-        else:
-            # Unexpected response format
+                
+        except Exception as e:
+            # Validation or execution failed
             result = {
-                "extremist": None,
-                "confidence": None,
+                "p_safe": 0.7,
+                "p_uncertain": 0.2,
+                "p_extremist": 0.1,
                 "validation_status": "FAILED",
-                "error": "No valid response from trustcall extractor",
-                "raw_response": str(response)
+                "error": f"LLM error: {str(e)}",
+                "error_type": type(e).__name__
             }
-            
-    except Exception as e:
-        # trustcall validation or execution failed
-        result = {
-            "extremist": None, 
-            "confidence": None, 
-            "validation_status": "FAILED",
-            "error": f"Trustcall error: {str(e)}",
-            "error_type": type(e).__name__
-        }
-
-    return result
+        
+        results.append(result)
+    
+    return results
 
 
 # Simple test function to demonstrate validation
 if __name__ == "__main__":
-    # Test the validation system with augmented text format
+
+    audio_path = "src/testing/test_extremist_audio.wav"
+
+
     print("Testing extremism analysis with trustcall validation...\n")
+
     
-    test_cases = [
-        "This group of people should not have the same rights as us. [emotion=angry, emotion confidence=0.85, pitch=high, emphasis=high, pace=fast]",
-        "I think we should all work together to build a better community. [emotion=calm, emotion confidence=0.8, pitch=medium, emphasis=low, pace=moderate]",
-        "Those people are a bit weird, honestly. [emotion=neutral, emotion confidence=0.6, pitch=high, emphasis=high, pace=fast]"
-    ]
     
+
     for i, test_augmented_text in enumerate(test_cases, 1):
         print(f"\n{'='*80}")
         print(f"TEST CASE {i}")

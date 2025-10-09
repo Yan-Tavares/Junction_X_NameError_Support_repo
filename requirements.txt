@@ -14,6 +14,8 @@ librosa
 soundfile
 ollama  # Ollama Python client
 langchain-ollama  # LangChain Ollama integration for trustcall
+langchain-core
+trustcall
 
 # Data & Analysis
 numpy
@@ -30,4 +32,3 @@ yt-dlp
 xgboost
 pydantic
 pydantic-settings
-trustcall
